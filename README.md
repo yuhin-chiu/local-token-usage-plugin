@@ -12,8 +12,14 @@ Reads session files directly from your machine — no data ever leaves.
 
 ## Install via Claude Code marketplace
 
+**Step 1 — Register the marketplace:**
 ```
-/plugins add https://github.com/yuhin-chiu/local-token-usage-plugin
+/plugin marketplace add https://github.com/yuhin-chiu/local-token-usage-plugin.git#main
+```
+
+**Step 2 — Install the plugin:**
+```
+/plugin install ai-usage
 ```
 
 ## Commands
