@@ -1,0 +1,16 @@
+{
+  "name": "ai-usage",
+  "version": "1.0.0",
+  "description": "Local AI token & cost dashboard for Claude Code + Codex CLI. Install once, track forever.",
+  "author": { "name": "yuhin-chiu" },
+  "commands": [
+    "./commands/init.md",
+    "./commands/start.md",
+    "./commands/stop.md",
+    "./commands/status.md",
+    "./commands/open.md",
+    "./commands/query.md"
+  ],
+  "homepage": "https://github.com/yuhin-chiu/ai-usage-plugin",
+  "repository": "https://github.com/yuhin-chiu/ai-usage-plugin"
+}
