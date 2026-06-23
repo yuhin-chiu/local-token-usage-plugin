@@ -1,10 +1,31 @@
-Show today's AI token usage inline in the conversation. No browser needed — reads session files directly from the local machine.
+Show AI token usage inline in the conversation. No browser needed — reads session files directly from the local machine.
+
+Accepts an optional argument:
+- `/ai-usage:query` or `/ai-usage:query today` — today only (default)
+- `/ai-usage:query yesterday` — yesterday only
+- `/ai-usage:query 7d` — last 7 days
+- `/ai-usage:query 30d` — last 30 days
 
 ---
 
-## Step 1: Run the usage script
+## Step 1: Parse the argument
 
-Run the following Node.js script in the terminal. It reads `~/.claude/projects/` and `~/.codex/sessions/` and prints a usage summary.
+Read the argument the user passed (if any). Map it to a date range:
+
+| Argument | `FROM` (inclusive) | `TO` (inclusive) |
+|---|---|---|
+| `today` or none | today | today |
+| `yesterday` | yesterday | yesterday |
+| `7d` | 6 days ago | today |
+| `30d` | 29 days ago | today |
+
+Compute `FROM` and `TO` as `YYYY-MM-DD` strings. Pass them into the script below by substituting `FROM_DATE` and `TO_DATE`.
+
+---
+
+## Step 2: Run the usage script
+
+Replace `FROM_DATE` and `TO_DATE` with the actual date strings before running.
 
 ```bash
 node -e "
@@ -12,7 +33,13 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const TODAY = new Date().toISOString().slice(0, 10);
+const FROM = 'FROM_DATE';
+const TO   = 'TO_DATE';
+
+function inRange(ts) {
+  const d = (ts || '').slice(0, 10);
+  return d >= FROM && d <= TO;
+}
 
 // --- Pricing table ($/token) ---
 const M = 1_000_000;
@@ -42,7 +69,6 @@ function getPrice(model) {
   return FALLBACK;
 }
 
-// --- Walk directory ---
 function walkJsonl(dir) {
   const files = [];
   if (!fs.existsSync(dir)) return files;
@@ -67,15 +93,15 @@ for (const f of walkJsonl(path.join(os.homedir(), '.claude', 'projects'))) {
       const obj = JSON.parse(line);
       if (obj.type !== 'assistant') continue;
       const ts = obj.timestamp || obj.ts || '';
-      if (!ts.startsWith(TODAY)) continue;
+      if (!inRange(ts)) continue;
       const id = obj.message?.id || obj.requestId || '';
       if (id && seen.has(id)) continue;
       if (id) seen.add(id);
       const u = obj.message?.usage || {};
-      const inp  = u.input_tokens || 0;
-      const out  = u.output_tokens || 0;
-      const cc   = u.cache_creation_input_tokens || 0;
-      const cr   = u.cache_read_input_tokens || 0;
+      const inp = u.input_tokens || 0;
+      const out = u.output_tokens || 0;
+      const cc  = u.cache_creation_input_tokens || 0;
+      const cr  = u.cache_read_input_tokens || 0;
       claudeTokens += inp + out + cc + cr;
       const p = getPrice(obj.message?.model);
       claudeCost += inp*p.i + out*p.o + cc*p.cc + cr*p.cr;
@@ -85,14 +111,13 @@ for (const f of walkJsonl(path.join(os.homedir(), '.claude', 'projects'))) {
 
 // --- Codex CLI ---
 let codexTokens = 0, codexCost = 0;
-const codexDir = path.join(os.homedir(), '.codex', 'sessions');
-for (const f of walkJsonl(codexDir)) {
+for (const f of walkJsonl(path.join(os.homedir(), '.codex', 'sessions'))) {
   for (const line of fs.readFileSync(f, 'utf8').split('\n')) {
     if (!line.trim()) continue;
     try {
       const obj = JSON.parse(line);
       const ts = obj.timestamp || obj.ts || '';
-      if (obj.type === 'event_msg' && obj.payload?.type === 'token_count' && ts.startsWith(TODAY)) {
+      if (obj.type === 'event_msg' && obj.payload?.type === 'token_count' && inRange(ts)) {
         const delta = obj.payload?.info?.last_token_usage?.total_tokens || 0;
         codexTokens += delta;
         codexCost += delta * FALLBACK.i;
@@ -112,9 +137,10 @@ function fmtCost(c) { return '\$' + c.toFixed(4); }
 
 const total = claudeTokens + codexTokens;
 const totalCost = claudeCost + codexCost;
+const label = FROM === TO ? FROM : FROM + ' ~ ' + TO;
 
 console.log('');
-console.log('AI Usage · Today (' + TODAY + ')');
+console.log('AI Usage · ' + label);
 console.log('─'.repeat(44));
 console.log('Source        Tokens        Cost');
 console.log('─'.repeat(44));
@@ -128,9 +154,9 @@ console.log('');
 
 ---
 
-## Step 2: Display the result
+## Step 3: Display the result
 
-Copy the script output and display it to the user in a code block. Then add one line:
+Show the script output to the user in a code block. Then add:
 > "For full breakdown by model and daily trend, run `/ai-usage:open`."
 
 If either source shows 0 tokens and the user expects data, suggest checking:
