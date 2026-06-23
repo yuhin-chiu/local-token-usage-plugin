@@ -87,18 +87,15 @@ for (const f of walkJsonl(path.join(os.homedir(), '.claude', 'projects'))) {
 let codexTokens = 0, codexCost = 0;
 const codexDir = path.join(os.homedir(), '.codex', 'sessions');
 for (const f of walkJsonl(codexDir)) {
-  let prev = 0;
   for (const line of fs.readFileSync(f, 'utf8').split('\n')) {
     if (!line.trim()) continue;
     try {
       const obj = JSON.parse(line);
       const ts = obj.timestamp || obj.ts || '';
-      if (obj.type === 'token_count' && ts.startsWith(TODAY)) {
-        const cur = obj.total_tokens || obj.tokens || 0;
-        const delta = cur > prev ? cur - prev : cur;
+      if (obj.type === 'event_msg' && obj.payload?.type === 'token_count' && ts.startsWith(TODAY)) {
+        const delta = obj.payload?.info?.last_token_usage?.total_tokens || 0;
         codexTokens += delta;
         codexCost += delta * FALLBACK.i;
-        prev = cur;
       }
     } catch {}
   }
