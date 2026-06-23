@@ -11,6 +11,6 @@
     "./commands/open.md",
     "./commands/query.md"
   ],
-  "homepage": "https://github.com/yuhin-chiu/ai-usage-plugin",
-  "repository": "https://github.com/yuhin-chiu/ai-usage-plugin"
+  "homepage": "https://github.com/yuhin-chiu/local-token-usage-plugin",
+  "repository": "https://github.com/yuhin-chiu/local-token-usage-plugin"
 }

@@ -13,7 +13,7 @@ Reads session files directly from your machine — no data ever leaves.
 ## Install via Claude Code marketplace
 
 ```
-/plugins add https://github.com/yuhin-chiu/ai-usage-plugin
+/plugins add https://github.com/yuhin-chiu/local-token-usage-plugin
 ```
 
 ## Commands
