@@ -1,40 +1,181 @@
-# ai-usage plugin
+# AI Usage Plugin
 
-Local AI token & cost dashboard for Claude Code + Codex CLI.
+本地 AI 用量看板插件，支持 Claude Code 和 Codex CLI 的 Token 消耗统计与可视化。
 
-Reads session files directly from your machine — no data ever leaves.
+数据全部读取自本机文件，**不联网、不上传、零隐私风险**。
 
-## Requirements
+---
 
-- Node.js 18+
-- Git
-- PM2 (`npm install -g pm2`)
+## 这个插件能做什么？
 
-## Install via Claude Code marketplace
+- 在对话中直接查看今天/昨天/近 7 天/近 30 天的 Token 用量和费用
+- 一键部署本地 Web 看板，查看每日趋势图、模型用量排行
+- 支持 Claude Code（`~/.claude/projects/`）和 Codex CLI（`~/.codex/sessions/`）双数据源
 
-**Step 1 — Register the marketplace:**
+---
+
+## 前置要求
+
+安装前请确认你的电脑已安装：
+
+| 工具 | 用途 | 安装方式 |
+|------|------|---------|
+| Node.js 18+ | 运行看板服务 | [nodejs.org](https://nodejs.org) |
+| Git | 拉取看板代码 | [git-scm.com](https://git-scm.com) |
+| PM2 | 后台管理看板进程 | `npm install -g pm2` |
+
+> **检查是否已安装：** 在终端分别运行 `node --version`、`git --version`、`pm2 --version`，能看到版本号说明已安装。
+
+---
+
+## 安装步骤
+
+在 Claude Code 中依次执行以下两条命令：
+
+**第一步 — 添加插件来源：**
 ```
 /plugin marketplace add https://github.com/yuhin-chiu/local-token-usage-plugin.git#main
 ```
 
-**Step 2 — Install the plugin:**
+**第二步 — 安装插件：**
 ```
 /plugin install ai-usage
 ```
 
-## Commands
+安装完成后，重新加载插件：
+```
+/reload-plugins
+```
 
-| Command | Description |
-|---------|-------------|
-| `/ai-usage:init` | One-time install: clones dashboard, builds, starts via PM2 |
-| `/ai-usage:start` | Start the dashboard service |
-| `/ai-usage:stop` | Stop the dashboard service |
-| `/ai-usage:status` | Check if dashboard is running |
-| `/ai-usage:open` | Open dashboard in browser |
-| `/ai-usage:query` | Show today's usage inline in chat (no browser needed) |
+---
 
-## Dashboard
+## 命令一览
 
-After `/ai-usage:init`, the dashboard runs at `http://localhost:3002/dashboard`.
+### `/ai-usage:query` — 在对话中查看用量
 
-Source: [yuhin-chiu/local-token-usage](https://github.com/yuhin-chiu/local-token-usage)
+无需启动看板，直接在 Claude Code 对话窗口输出统计数据。
+
+**用法：**
+```
+/ai-usage:query           → 今天的用量
+/ai-usage:query today     → 今天的用量（同上）
+/ai-usage:query yesterday → 昨天的用量
+/ai-usage:query 7d        → 最近 7 天合计
+/ai-usage:query 30d       → 最近 30 天合计
+```
+
+**输出示例：**
+```
+AI Usage · 2026-06-23
+────────────────────────────────────────────
+Source        Tokens        Cost
+────────────────────────────────────────────
+Claude Code   35.33M        $20.2269
+Codex CLI     6.22M         $18.6711
+────────────────────────────────────────────
+Total         41.56M        $38.8981
+```
+
+---
+
+### `/ai-usage:init` — 一键安装看板服务
+
+**首次安装时使用**，自动完成以下操作：
+1. 检查 Node.js 和 PM2 是否已安装
+2. 询问安装目录（默认 `~/ai-usage`）
+3. 自动 clone 代码、安装依赖、构建项目
+4. 用 PM2 启动服务并设置开机自启
+
+完成后访问 `http://localhost:3002/dashboard` 查看看板。
+
+> 如果已经安装过，再次运行会自动拉取最新代码并重启服务。
+
+---
+
+### `/ai-usage:start` — 启动看板服务
+
+```
+/ai-usage:start
+```
+
+启动已安装的看板服务。服务启动后访问 `http://localhost:3002/dashboard`。
+
+---
+
+### `/ai-usage:stop` — 停止看板服务
+
+```
+/ai-usage:stop
+```
+
+停止后台运行的看板服务（不会删除数据）。
+
+---
+
+### `/ai-usage:status` — 查看运行状态
+
+```
+/ai-usage:status
+```
+
+检查看板服务是否正在运行，输出示例：
+
+- 运行中：`✓ AI Usage Dashboard is running at http://localhost:3002/dashboard`
+- 已停止：`✗ Dashboard is stopped. Use /ai-usage:start to start it.`
+- 未安装：`✗ No ai-usage process found. Run /ai-usage:init to install.`
+
+---
+
+### `/ai-usage:open` — 在浏览器中打开看板
+
+```
+/ai-usage:open
+```
+
+自动在默认浏览器中打开 `http://localhost:3002/dashboard`。
+
+看板功能包括：
+- 今日 / 昨日 / 近 7 天 / 近 30 天 / 近 90 天 用量切换
+- 每日 Token 和费用明细列表
+- 模型用量排行（支持按 Claude Code / Codex 分类）
+- 历史趋势折线图
+
+---
+
+## 常见问题
+
+**Q：`/ai-usage:query` 显示 Codex CLI 为 0，但我明明用了 Codex？**
+
+确认 `~/.codex/sessions/` 目录存在且有 `.jsonl` 文件。如果目录不存在，说明 Codex CLI 可能把数据存在了其他位置。
+
+**Q：`/ai-usage:status` 显示未运行，但我能访问 localhost:3002？**
+
+你可能是用 `npm run dev` 手动启动的，而不是通过 PM2。`status` 命令只检测 PM2 进程。可以直接用 `/ai-usage:open` 打开看板。
+
+**Q：安装后看板访问不了？**
+
+运行 `/ai-usage:status` 查看状态，如果未运行执行 `/ai-usage:start`。如果报错，可以在终端运行 `pm2 logs ai-usage` 查看详细日志。
+
+**Q：如何更新到最新版本？**
+
+```
+/plugin update ai-usage
+```
+
+---
+
+## 数据来源说明
+
+| 数据源 | 文件路径 | 说明 |
+|--------|---------|------|
+| Claude Code | `~/.claude/projects/**/*.jsonl` | 每次对话的 Token 用量记录 |
+| Codex CLI | `~/.codex/sessions/**/*.jsonl` | 每次会话的 Token 累计事件 |
+
+所有数据均在本机读取，不经过任何网络请求。
+
+---
+
+## 相关链接
+
+- 看板源码：[yuhin-chiu/local-token-usage](https://github.com/yuhin-chiu/local-token-usage)
+- 插件源码：[yuhin-chiu/local-token-usage-plugin](https://github.com/yuhin-chiu/local-token-usage-plugin)
