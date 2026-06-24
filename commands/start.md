@@ -83,3 +83,27 @@ Get-NetTCPConnection -LocalPort 3002 -State Listen -ErrorAction SilentlyContinue
 
 If port is live:
 > "✓ Dashboard started at http://localhost:3002/dashboard"
+
+---
+
+## Step 3: Open in browser
+
+After confirming the service is running, open the dashboard automatically:
+
+**macOS:**
+```bash
+open http://localhost:3002/dashboard
+```
+
+**Linux:**
+```bash
+xdg-open http://localhost:3002/dashboard
+```
+
+**Windows (PowerShell):**
+```powershell
+Start-Process "http://localhost:3002/dashboard"
+```
+
+Tell the user:
+> "Opening http://localhost:3002/dashboard in your browser."
