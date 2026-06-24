@@ -1,54 +1,59 @@
-# Changelog
+# 更新日志
 
-All notable changes to `ai-usage` plugin are documented here.
+`ai-usage` 插件的所有版本变更记录。
 
 ---
 
 ## [1.0.5] - 2026-06-24
 
-### Changed
-- `/ai-usage:start` now automatically opens the dashboard in the default browser after the service starts successfully
+### 插件命令
+- `/ai-usage:start` 启动服务成功后自动在默认浏览器中打开看板
+
+### 看板页面
+- 新增日间 / 暗黑模式切换按钮（右上角悬浮 ☀️ / 🌙，偏好保存到本地）
+- 默认选中时间范围改为「今天」（原来是「近 7 天」）
+- 日间模式背景色采用暖橘奶油色调，与橘色主题风格统一
 
 ---
 
 ## [1.0.4] - 2026-06-23
 
-### Changed
-- `/ai-usage:init` now offers three PM2 installation modes:
-  1. Global PM2 install (recommended)
-  2. Project-level PM2 install
-  3. No PM2 (direct `npm start`)
-- `/ai-usage:start`, `/ai-usage:stop`, `/ai-usage:status` updated to handle all three modes
+### 插件命令
+- `/ai-usage:init` 新增三种 PM2 安装方式供用户选择：
+  1. 全局安装 PM2（推荐）
+  2. 项目级安装 PM2
+  3. 不安装 PM2（直接 `npm start`）
+- `/ai-usage:start`、`/ai-usage:stop`、`/ai-usage:status` 同步适配三种模式
 
 ---
 
 ## [1.0.3] - 2026-06-23
 
-### Added
-- `/ai-usage:query` now accepts date range arguments: `today` (default), `yesterday`, `7d`, `30d`
+### 插件命令
+- `/ai-usage:query` 支持时间范围参数：`today`（默认）、`yesterday`、`7d`、`30d`
 
 ---
 
 ## [1.0.2] - 2026-06-23
 
-### Fixed
-- Codex CLI JSONL parsing: corrected event structure traversal
-  - Type check: `obj.type === 'event_msg' && obj.payload?.type === 'token_count'`
-  - Token value: `obj.payload.info.last_token_usage.total_tokens`
+### 修复
+- 修复 Codex CLI JSONL 解析错误：
+  - 事件类型判断改为 `obj.type === 'event_msg' && obj.payload?.type === 'token_count'`
+  - Token 取值路径改为 `obj.payload.info.last_token_usage.total_tokens`
 
 ---
 
 ## [1.0.1] - 2026-06-23
 
-### Added
-- README: two-step installation instructions (`/plugin marketplace add` + `/plugin install`)
+### 文档
+- README 补充两步安装说明（`/plugin marketplace add` + `/plugin install`）
 
 ---
 
 ## [1.0.0] - 2026-06-23
 
-### Added
-- Initial release with 6 commands: `init`, `start`, `stop`, `status`, `open`, `query`
-- Claude Code data source: reads `~/.claude/projects/**/*.jsonl`
-- Codex CLI data source: reads `~/.codex/sessions/**/*.jsonl`
-- Cost estimation using hardcoded pricing table per model
+### 首次发布
+- 6 个命令：`init`、`start`、`stop`、`status`、`open`、`query`
+- 支持 Claude Code 数据源（`~/.claude/projects/**/*.jsonl`）
+- 支持 Codex CLI 数据源（`~/.codex/sessions/**/*.jsonl`）
+- 内置模型定价表，自动估算费用
