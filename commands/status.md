@@ -34,7 +34,7 @@ pm2 list
 
 If project-level PM2 (run from install dir):
 ```bash
-cd ~/ai-usage && npx pm2 list
+cd ~/local-usage && npx pm2 list
 ```
 
 Look for `local-usage` process:

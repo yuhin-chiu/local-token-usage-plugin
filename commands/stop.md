@@ -10,7 +10,7 @@ pm2 --version
 ```
 
 - If global `pm2` available → **global PM2 mode**
-- If not, check project: `cd ~/ai-usage && npx --no pm2 --version`
+- If not, check project: `cd ~/local-usage && npx --no pm2 --version`
 - If neither → **no-PM2 mode**
 
 ---
@@ -35,7 +35,7 @@ If process not found:
 ### 项目级 PM2 模式
 
 ```bash
-cd ~/ai-usage
+cd ~/local-usage
 npx pm2 stop local-usage
 npx pm2 list
 ```

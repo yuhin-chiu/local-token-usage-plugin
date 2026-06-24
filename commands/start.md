@@ -10,7 +10,7 @@ Check which PM2 is available:
 # Check global PM2
 pm2 --version
 
-# Check project-level PM2 (run from install dir, default ~/ai-usage)
+# Check project-level PM2 (run from install dir, default ~/local-usage)
 npx --no pm2 --version 2>/dev/null
 ```
 
@@ -43,7 +43,7 @@ Suggest running `/local-usage:init` to re-register the process.
 ### 项目级 PM2 模式
 
 ```bash
-cd ~/ai-usage
+cd ~/local-usage
 npx pm2 start local-usage
 npx pm2 list
 ```
@@ -62,14 +62,14 @@ npx pm2 logs local-usage --lines 20 --nostream
 
 **macOS/Linux:**
 ```bash
-cd ~/ai-usage
-nohup npm start > ~/ai-usage.log 2>&1 &
+cd ~/local-usage
+nohup npm start > ~/local-usage.log 2>&1 &
 echo "Started PID: $!"
 ```
 
 **Windows (PowerShell):**
 ```powershell
-Start-Process -NoNewWindow -FilePath "npm" -ArgumentList "start" -WorkingDirectory "$HOME\ai-usage"
+Start-Process -NoNewWindow -FilePath "npm" -ArgumentList "start" -WorkingDirectory "$HOME\local-usage"
 ```
 
 Then verify the port is listening:

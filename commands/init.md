@@ -20,7 +20,7 @@ Then stop.
 Ask the user via AskUserQuestion:
 - Question: "Where should the dashboard be installed?"
 - Options:
-  - `~/ai-usage` (default, recommended)
+  - `~/local-usage` (default, recommended)
   - Custom path (user will type their own)
 
 Expand `~` to the actual home directory:
@@ -132,7 +132,7 @@ npx pm2 startup
 **macOS/Linux** — 后台运行并输出日志到文件：
 ```bash
 cd "$INSTALL_DIR"
-nohup npm start > ~/ai-usage.log 2>&1 &
+nohup npm start > ~/local-usage.log 2>&1 &
 echo "Started. PID: $!"
 ```
 
@@ -165,4 +165,4 @@ Get-NetTCPConnection -LocalPort 3002 -State Listen -ErrorAction SilentlyContinue
 
 如果端口无响应，根据启动模式显示日志：
 - PM2 模式：`pm2 logs local-usage --lines 30 --nostream`（全局）或 `npx pm2 logs local-usage --lines 30 --nostream`（项目级）
-- 无 PM2 模式：`cat ~/ai-usage.log`（macOS/Linux）
+- 无 PM2 模式：`cat ~/local-usage.log`（macOS/Linux）
