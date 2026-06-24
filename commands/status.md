@@ -19,7 +19,7 @@ Get-NetTCPConnection -LocalPort 3002 -State Listen -ErrorAction SilentlyContinue
 If the port is active → service is running, report:
 > "✓ AI Usage Dashboard is running at http://localhost:3002/dashboard
 >
-> Use `/ai-usage:open` to open it, or `/ai-usage:query` to see today's usage inline."
+> Use `/local-usage:open` to open it, or `/local-usage:query` to see today's usage inline."
 
 If the port is not active → service is stopped, continue to Step 2.
 
@@ -37,10 +37,10 @@ If project-level PM2 (run from install dir):
 cd ~/ai-usage && npx pm2 list
 ```
 
-Look for `ai-usage` process:
+Look for `local-usage` process:
 - `online` → port check above should have caught this; show the URL
-- `stopped` → report: "✗ Dashboard is stopped. Use `/ai-usage:start` to start it."
-- Not listed → report: "✗ No ai-usage process registered. Run `/ai-usage:init` to set it up."
+- `stopped` → report: "✗ Dashboard is stopped. Use `/local-usage:start` to start it."
+- Not listed → report: "✗ No local-usage process registered. Run `/local-usage:init` to set it up."
 
 If neither PM2 is available (no-PM2 mode):
-> "✗ Dashboard is not running. Use `/ai-usage:start` to start it."
+> "✗ Dashboard is not running. Use `/local-usage:start` to start it."

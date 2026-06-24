@@ -1,5 +1,5 @@
 {
-  "name": "ai-usage",
+  "name": "local-usage",
   "owner": {
     "name": "yuhin-chiu",
     "email": "yuhin1106@gmail.com"
@@ -9,7 +9,7 @@
   },
   "plugins": [
     {
-      "name": "ai-usage",
+      "name": "local-usage",
       "source": "./",
       "description": "Install and manage a local dashboard that aggregates token/cost data from Claude Code and Codex CLI session files."
     }

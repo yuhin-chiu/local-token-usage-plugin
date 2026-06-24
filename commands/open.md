@@ -26,4 +26,4 @@ Tell the user:
 
 ## Step 2: If the page doesn't load
 
-Suggest running `/ai-usage:status` to check whether the service is running.
+Suggest running `/local-usage:status` to check whether the service is running.

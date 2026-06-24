@@ -24,7 +24,7 @@
 | Git | 拉取看板代码 | [git-scm.com](https://git-scm.com) |
 | PM2 | 后台持久运行（**可选**） | 安装时由插件引导选择 |
 
-> **只有 Node.js 和 Git 是必须的。** PM2 在执行 `/ai-usage:init` 时会询问你的偏好，可以选择全局安装、项目级安装，或完全不装。
+> **只有 Node.js 和 Git 是必须的。** PM2 在执行 `/local-usage:init` 时会询问你的偏好，可以选择全局安装、项目级安装，或完全不装。
 
 > **检查是否已安装：** 在终端运行 `node --version` 和 `git --version`，能看到版本号说明已安装。
 
@@ -41,7 +41,7 @@
 
 **第二步 — 安装插件：**
 ```
-/plugin install ai-usage
+/plugin install local-usage
 ```
 
 安装完成后，重新加载插件：
@@ -53,17 +53,17 @@
 
 ## 命令一览
 
-### `/ai-usage:query` — 在对话中查看用量
+### `/local-usage:query` — 在对话中查看用量
 
 无需启动看板，直接在 Claude Code 对话窗口输出统计数据。
 
 **用法：**
 ```
-/ai-usage:query           → 今天的用量
-/ai-usage:query today     → 今天的用量（同上）
-/ai-usage:query yesterday → 昨天的用量
-/ai-usage:query 7d        → 最近 7 天合计
-/ai-usage:query 30d       → 最近 30 天合计
+/local-usage:query           → 今天的用量
+/local-usage:query today     → 今天的用量（同上）
+/local-usage:query yesterday → 昨天的用量
+/local-usage:query 7d        → 最近 7 天合计
+/local-usage:query 30d       → 最近 30 天合计
 ```
 
 **输出示例：**
@@ -80,7 +80,7 @@ Total         41.56M        $38.8981
 
 ---
 
-### `/ai-usage:init` — 一键安装看板服务
+### `/local-usage:init` — 一键安装看板服务
 
 **首次安装时使用**，自动完成以下操作：
 1. 检查 Node.js 版本
@@ -100,44 +100,44 @@ Total         41.56M        $38.8981
 
 ---
 
-### `/ai-usage:start` — 启动看板服务
+### `/local-usage:start` — 启动看板服务
 
 ```
-/ai-usage:start
+/local-usage:start
 ```
 
 启动已安装的看板服务。服务启动后访问 `http://localhost:3002/dashboard`。
 
 ---
 
-### `/ai-usage:stop` — 停止看板服务
+### `/local-usage:stop` — 停止看板服务
 
 ```
-/ai-usage:stop
+/local-usage:stop
 ```
 
 停止后台运行的看板服务（不会删除数据）。
 
 ---
 
-### `/ai-usage:status` — 查看运行状态
+### `/local-usage:status` — 查看运行状态
 
 ```
-/ai-usage:status
+/local-usage:status
 ```
 
 检查看板服务是否正在运行，输出示例：
 
 - 运行中：`✓ AI Usage Dashboard is running at http://localhost:3002/dashboard`
-- 已停止：`✗ Dashboard is stopped. Use /ai-usage:start to start it.`
-- 未安装：`✗ No ai-usage process found. Run /ai-usage:init to install.`
+- 已停止：`✗ Dashboard is stopped. Use /local-usage:start to start it.`
+- 未安装：`✗ No local-usage process found. Run /local-usage:init to install.`
 
 ---
 
-### `/ai-usage:open` — 在浏览器中打开看板
+### `/local-usage:open` — 在浏览器中打开看板
 
 ```
-/ai-usage:open
+/local-usage:open
 ```
 
 自动在默认浏览器中打开 `http://localhost:3002/dashboard`。
@@ -152,22 +152,22 @@ Total         41.56M        $38.8981
 
 ## 常见问题
 
-**Q：`/ai-usage:query` 显示 Codex CLI 为 0，但我明明用了 Codex？**
+**Q：`/local-usage:query` 显示 Codex CLI 为 0，但我明明用了 Codex？**
 
 确认 `~/.codex/sessions/` 目录存在且有 `.jsonl` 文件。如果目录不存在，说明 Codex CLI 可能把数据存在了其他位置。
 
-**Q：`/ai-usage:status` 显示未运行，但我能访问 localhost:3002？**
+**Q：`/local-usage:status` 显示未运行，但我能访问 localhost:3002？**
 
-你可能是用 `npm run dev` 手动启动的，而不是通过 PM2。`status` 命令只检测 PM2 进程。可以直接用 `/ai-usage:open` 打开看板。
+你可能是用 `npm run dev` 手动启动的，而不是通过 PM2。`status` 命令只检测 PM2 进程。可以直接用 `/local-usage:open` 打开看板。
 
 **Q：安装后看板访问不了？**
 
-运行 `/ai-usage:status` 查看状态，如果未运行执行 `/ai-usage:start`。如果报错，可以在终端运行 `pm2 logs ai-usage` 查看详细日志。
+运行 `/local-usage:status` 查看状态，如果未运行执行 `/local-usage:start`。如果报错，可以在终端运行 `pm2 logs local-usage` 查看详细日志。
 
 **Q：如何更新到最新版本？**
 
 ```
-/plugin update ai-usage
+/plugin update local-usage
 ```
 
 ---

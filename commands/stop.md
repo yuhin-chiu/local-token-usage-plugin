@@ -20,7 +20,7 @@ pm2 --version
 ### 全局 PM2 模式
 
 ```bash
-pm2 stop ai-usage
+pm2 stop local-usage
 pm2 list
 ```
 
@@ -28,7 +28,7 @@ If status is `stopped`:
 > "✓ Dashboard stopped."
 
 If process not found:
-> "No running ai-usage process found — it may already be stopped."
+> "No running local-usage process found — it may already be stopped."
 
 ---
 
@@ -36,7 +36,7 @@ If process not found:
 
 ```bash
 cd ~/ai-usage
-npx pm2 stop ai-usage
+npx pm2 stop local-usage
 npx pm2 list
 ```
 

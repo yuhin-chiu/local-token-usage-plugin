@@ -1,13 +1,20 @@
 # 更新日志
 
-`ai-usage` 插件的所有版本变更记录。
+`local-usage` 插件的所有版本变更记录。
+
+---
+
+## [1.0.6] - 2026-06-24
+
+### 变更
+- 插件重命名：`ai-usage` → `local-usage`，所有命令前缀由 `/ai-usage:` 改为 `/local-usage:`
 
 ---
 
 ## [1.0.5] - 2026-06-24
 
 ### 插件命令
-- `/ai-usage:start` 启动服务成功后自动在默认浏览器中打开看板
+- `/local-usage:start` 启动服务成功后自动在默认浏览器中打开看板
 
 ### 看板页面
 - 新增日间 / 暗黑模式切换按钮（右上角悬浮 ☀️ / 🌙，偏好保存到本地）
@@ -19,18 +26,18 @@
 ## [1.0.4] - 2026-06-23
 
 ### 插件命令
-- `/ai-usage:init` 新增三种 PM2 安装方式供用户选择：
+- `/local-usage:init` 新增三种 PM2 安装方式供用户选择：
   1. 全局安装 PM2（推荐）
   2. 项目级安装 PM2
   3. 不安装 PM2（直接 `npm start`）
-- `/ai-usage:start`、`/ai-usage:stop`、`/ai-usage:status` 同步适配三种模式
+- `/local-usage:start`、`/local-usage:stop`、`/local-usage:status` 同步适配三种模式
 
 ---
 
 ## [1.0.3] - 2026-06-23
 
 ### 插件命令
-- `/ai-usage:query` 支持时间范围参数：`today`（默认）、`yesterday`、`7d`、`30d`
+- `/local-usage:query` 支持时间范围参数：`today`（默认）、`yesterday`、`7d`、`30d`
 
 ---
 

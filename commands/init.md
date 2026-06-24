@@ -9,7 +9,7 @@ node --version
 ```
 
 If Node.js is not installed or version is below 18, tell the user:
-> "Node.js 18+ is required. Please install it from https://nodejs.org and re-run /ai-usage:init."
+> "Node.js 18+ is required. Please install it from https://nodejs.org and re-run /local-usage:init."
 
 Then stop.
 
@@ -142,7 +142,7 @@ Start-Process -NoNewWindow -FilePath "npm" -ArgumentList "start" -WorkingDirecto
 ```
 
 告诉用户：
-> "服务已在后台启动（无 PM2）。注意：重启电脑后需重新运行 /ai-usage:init 或 /ai-usage:start 来启动服务。"
+> "服务已在后台启动（无 PM2）。注意：重启电脑后需重新运行 /local-usage:init 或 /local-usage:start 来启动服务。"
 
 ---
 
@@ -161,8 +161,8 @@ Get-NetTCPConnection -LocalPort 3002 -State Listen -ErrorAction SilentlyContinue
 如果端口有监听，告诉用户：
 > "✓ AI Usage Dashboard is running at http://localhost:3002/dashboard
 >
-> Use `/ai-usage:open` to open it, or `/ai-usage:query` to see today's usage inline."
+> Use `/local-usage:open` to open it, or `/local-usage:query` to see today's usage inline."
 
 如果端口无响应，根据启动模式显示日志：
-- PM2 模式：`pm2 logs ai-usage --lines 30 --nostream`（全局）或 `npx pm2 logs ai-usage --lines 30 --nostream`（项目级）
+- PM2 模式：`pm2 logs local-usage --lines 30 --nostream`（全局）或 `npx pm2 logs local-usage --lines 30 --nostream`（项目级）
 - 无 PM2 模式：`cat ~/ai-usage.log`（macOS/Linux）

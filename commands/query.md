@@ -1,10 +1,10 @@
 Show AI token usage inline in the conversation. No browser needed — reads session files directly from the local machine.
 
 Accepts an optional argument:
-- `/ai-usage:query` or `/ai-usage:query today` — today only (default)
-- `/ai-usage:query yesterday` — yesterday only
-- `/ai-usage:query 7d` — last 7 days
-- `/ai-usage:query 30d` — last 30 days
+- `/local-usage:query` or `/local-usage:query today` — today only (default)
+- `/local-usage:query yesterday` — yesterday only
+- `/local-usage:query 7d` — last 7 days
+- `/local-usage:query 30d` — last 30 days
 
 ---
 
@@ -157,7 +157,7 @@ console.log('');
 ## Step 3: Display the result
 
 Show the script output to the user in a code block. Then add:
-> "For full breakdown by model and daily trend, run `/ai-usage:open`."
+> "For full breakdown by model and daily trend, run `/local-usage:open`."
 
 If either source shows 0 tokens and the user expects data, suggest checking:
 - Claude Code: `~/.claude/projects/` exists and contains `.jsonl` files

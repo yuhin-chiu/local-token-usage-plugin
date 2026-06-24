@@ -25,18 +25,18 @@ npx --no pm2 --version 2>/dev/null
 ### 全局 PM2 模式
 
 ```bash
-pm2 start ai-usage
+pm2 start local-usage
 pm2 list
 ```
 
-If `ai-usage` is `online`:
+If `local-usage` is `online`:
 > "✓ Dashboard started at http://localhost:3002/dashboard"
 
 If it fails or process not found:
 ```bash
-pm2 logs ai-usage --lines 20 --nostream
+pm2 logs local-usage --lines 20 --nostream
 ```
-Suggest running `/ai-usage:init` to re-register the process.
+Suggest running `/local-usage:init` to re-register the process.
 
 ---
 
@@ -44,16 +44,16 @@ Suggest running `/ai-usage:init` to re-register the process.
 
 ```bash
 cd ~/ai-usage
-npx pm2 start ai-usage
+npx pm2 start local-usage
 npx pm2 list
 ```
 
-If `ai-usage` is `online`:
+If `local-usage` is `online`:
 > "✓ Dashboard started at http://localhost:3002/dashboard"
 
 If it fails:
 ```bash
-npx pm2 logs ai-usage --lines 20 --nostream
+npx pm2 logs local-usage --lines 20 --nostream
 ```
 
 ---
