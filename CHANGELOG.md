@@ -4,6 +4,20 @@
 
 ---
 
+## [1.1.0] - 2026-06-29
+
+### 插件命令
+- `/local-usage:init` 新增「自动探测 + 选择数据源」步骤（Step 5）：
+  - 探测本机已装的 AI 工具（检测 `~/.claude/projects`、`~/.codex/sessions` 是否存在）
+  - 多选让用户勾选要纳入的源，默认推荐探测到的（claude-code 保底），写入 `local-usage.config.json` 的 `enabledSources`
+  - 询问监听端口（默认 3002），一并写入配置；配置在启动服务前写好
+- 「不安装 PM2」模式改用 `next start -p <port>` 启动，以尊重自定义端口（原 `npm start` 把端口写死成 3002）
+
+### 说明
+- 配合看板侧多源动态支持：看板按 `local-usage.config.json` 的 `enabledSources` 及各源能力动态渲染
+
+---
+
 ## [1.0.6] - 2026-06-24
 
 ### 变更
