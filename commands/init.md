@@ -142,7 +142,9 @@ Store as `PORT` (a positive integer; fall back to `3002` if invalid).
 ### 5d. Write `local-usage.config.json`
 
 Write the file into `INSTALL_DIR`, substituting the actual `ENABLED_SOURCES` and
-`PORT` chosen above (the example below shows both sources on port 3002):
+`PORT` chosen above (the example below shows both sources on port 3002). The
+`runMode` key is appended in **Step 6a** once the user picks how to run the service —
+`/local-usage:update` later reads it to bring the service back up without re-asking.
 
 ```bash
 # macOS/Linux
@@ -156,14 +158,17 @@ EOF
 ```
 
 ```powershell
-# Windows (PowerShell)
-@'
+# Windows (PowerShell) — write UTF-8 WITHOUT BOM. Do NOT use `Out-File -Encoding utf8`
+# on Windows PowerShell 5.1: it prepends a BOM that breaks node's JSON.parse (both the
+# app's config.ts and ecosystem.config.js), silently ignoring the config.
+$cfg = @'
 {
   "version": 1,
   "enabledSources": ["claude-code", "codex"],
   "port": 3002
 }
-'@ | Out-File -FilePath "$INSTALL_DIR\local-usage.config.json" -Encoding utf8
+'@
+[System.IO.File]::WriteAllText("$INSTALL_DIR\local-usage.config.json", $cfg)
 ```
 
 ---
@@ -191,6 +196,35 @@ Ask the user via AskUserQuestion:
    - 优点：零依赖，开箱即用
    - 缺点：关闭终端后服务停止，无自动重启
    - 适合：临时查看，或自己有其他进程管理方案
+
+Map the choice to a `RUN_MODE` string: 选项 1 → `pm2-global`, 选项 2 → `pm2-project`,
+选项 3 → `none`.
+
+---
+
+## Step 6a: Persist the run mode into config
+
+Write `runMode` into `local-usage.config.json` so `/local-usage:start` and
+`/local-usage:update` know how to (re)launch the service without asking again. Merge
+it in — don't rewrite the file — to keep the sources/port from Step 5d:
+
+**macOS/Linux:**
+```bash
+node -e '
+const fs=require("fs"),p=process.argv[1],m=process.argv[2];
+const raw=fs.readFileSync(p,"utf8"); const c=JSON.parse(raw.charCodeAt(0)===0xFEFF?raw.slice(1):raw); c.runMode=m;
+fs.writeFileSync(p, JSON.stringify(c,null,2)+"\n");
+' "$INSTALL_DIR/local-usage.config.json" "<RUN_MODE>"
+```
+
+**Windows (PowerShell):**
+```powershell
+node -e '
+const fs=require("fs"),p=process.argv[1],m=process.argv[2];
+const raw=fs.readFileSync(p,"utf8"); const c=JSON.parse(raw.charCodeAt(0)===0xFEFF?raw.slice(1):raw); c.runMode=m;
+fs.writeFileSync(p, JSON.stringify(c,null,2)+"\n");
+' "$INSTALL_DIR\local-usage.config.json" "<RUN_MODE>"
+```
 
 ---
 

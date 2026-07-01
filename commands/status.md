@@ -68,7 +68,7 @@ cd "<INSTALL_DIR>" && npx pm2 list
 Look for `local-usage` process:
 - `online` → port check above should have caught this; show the URL
 - `stopped` → report: "✗ Dashboard is stopped. Use `/local-usage:start` to start it."
-- Not listed → report: "✗ No local-usage process registered. Run `/local-usage:init` to set it up."
+- Not listed → report: "✗ No local-usage process registered. Run `/local-usage:start` to start it, or `/local-usage:update` if the install needs repair."
 
 If neither PM2 is available (no-PM2 mode):
 > "✗ Dashboard is not running. Use `/local-usage:start` to start it."

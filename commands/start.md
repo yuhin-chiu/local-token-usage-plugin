@@ -75,7 +75,9 @@ If it fails:
 ```bash
 pm2 logs local-usage --lines 20 --nostream
 ```
-Suggest running `/local-usage:init` to (re)install, or verify the install dir exists.
+Suggest running `/local-usage:update` to diagnose and repair the install (it fixes a
+missing config, stale deps/build, or an unregistered service, then brings it back up).
+Only fall back to `/local-usage:init` if there's no install directory at all.
 
 ---
 
