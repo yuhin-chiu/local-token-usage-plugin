@@ -11,7 +11,7 @@ missing, fall back to the default `~/local-usage`.
 
 **macOS/Linux:**
 ```bash
-INSTALL_DIR="$(cat "$HOME/.local-usage/install-path" 2>/dev/null)"
+INSTALL_DIR="$(cat "$CLAUDE_PLUGIN_DATA/install-path" 2>/dev/null)"
 [ -z "$INSTALL_DIR" ] && INSTALL_DIR="$HOME/local-usage"
 PORT="$(node -e "try{process.stdout.write(String(require(process.argv[1]).port||3002))}catch{process.stdout.write('3002')}" "$INSTALL_DIR/local-usage.config.json" 2>/dev/null)"
 [ -z "$PORT" ] && PORT=3002
@@ -20,8 +20,8 @@ echo "INSTALL_DIR=$INSTALL_DIR  PORT=$PORT"
 
 **Windows (PowerShell):**
 ```powershell
-$marker = "$env:USERPROFILE\.local-usage\install-path"
-$INSTALL_DIR = if (Test-Path $marker) { (Get-Content $marker -Raw).Trim() } else { "$env:USERPROFILE\local-usage" }
+$marker = if ($env:CLAUDE_PLUGIN_DATA) { Join-Path $env:CLAUDE_PLUGIN_DATA "install-path" } else { "" }
+$INSTALL_DIR = if ($marker -and (Test-Path $marker)) { (Get-Content $marker -Raw).Trim() } else { "$env:USERPROFILE\local-usage" }
 $cfg = Join-Path $INSTALL_DIR "local-usage.config.json"
 $PORT = if (Test-Path $cfg) { try { [int]((Get-Content $cfg -Raw | ConvertFrom-Json).port) } catch { 3002 } } else { 3002 }
 if (-not $PORT) { $PORT = 3002 }

@@ -33,22 +33,26 @@ Store the resolved path as `INSTALL_DIR`.
 
 The other commands (`start` / `stop` / `status` / `open`) must be able to find the
 install dir no matter which directory the user runs them from. Write the resolved
-`INSTALL_DIR` to a fixed marker file `~/.local-usage/install-path`:
+`INSTALL_DIR` into the plugin's **persistent data directory** (`$CLAUDE_PLUGIN_DATA`)
+— it survives plugin version updates, unlike the versioned install cache:
 
 **macOS/Linux:**
 ```bash
-mkdir -p "$HOME/.local-usage"
-printf '%s' "$INSTALL_DIR" > "$HOME/.local-usage/install-path"
+mkdir -p "$CLAUDE_PLUGIN_DATA"
+printf '%s' "$INSTALL_DIR" > "$CLAUDE_PLUGIN_DATA/install-path"
 ```
 
 **Windows (PowerShell):**
 ```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.local-usage" | Out-Null
-[System.IO.File]::WriteAllText("$env:USERPROFILE\.local-usage\install-path", $INSTALL_DIR)
+New-Item -ItemType Directory -Force $env:CLAUDE_PLUGIN_DATA | Out-Null
+[System.IO.File]::WriteAllText((Join-Path $env:CLAUDE_PLUGIN_DATA "install-path"), $INSTALL_DIR)
 ```
 
-> Without this marker, the other commands would fall back to the default
-> `~/local-usage` and fail to find a custom install location (e.g. on another drive).
+> `$CLAUDE_PLUGIN_DATA` is injected by Claude Code when a plugin command runs and
+> points at `~/.claude/plugins/data/<plugin>-<marketplace>/`. Without this marker,
+> the other commands fall back to the default `~/local-usage` and can't find a
+> custom install location (e.g. on another drive) — that's what `/local-usage:update`
+> repairs.
 
 ---
 

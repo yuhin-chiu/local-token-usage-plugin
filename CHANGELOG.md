@@ -4,6 +4,20 @@
 
 ---
 
+## [1.3.0] - 2026-07-01
+
+### 变更（标记文件迁移到插件数据目录）
+- 安装路径标记从家目录 dotfile `~/.local-usage/install-path` 迁到插件持久化数据目录 **`$CLAUDE_PLUGIN_DATA/install-path`**（`~/.claude/plugins/data/<plugin>-<marketplace>/`）。理由：跟插件走、不污染家目录、跨版本更新自动保留（安装 cache 是版本化的，放那儿更新即丢）。
+- `init` 及 `start`/`stop`/`status`/`open` 的 Step 0 统一改读 `$CLAUDE_PLUGIN_DATA`；不再使用 `~/.local-usage`。
+
+### 新增
+- **`/local-usage:update`** 迁移/修复命令：面向「已安装但新命令定位不到」的老用户（尤其自定义安装目录）。让用户直接指认现有安装目录并写入标记，**不重新克隆、不 rebuild、不重复 pull**；顺带清理 1.2.0 遗留的 `~/.local-usage`。
+
+### 说明
+- 1.2.0 的 `~/.local-usage` 标记方案为短命中间产物，本版直接弃用（无外部用户依赖）；升级后如定位不到安装，运行一次 `/local-usage:update` 即可。
+
+---
+
 ## [1.2.0] - 2026-07-01
 
 ### 修复（支持任意安装目录）
