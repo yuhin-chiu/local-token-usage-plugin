@@ -1,6 +1,6 @@
 {
   "name": "local-usage",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Local AI token & cost dashboard for Claude Code + Codex CLI. Install once, track forever.",
   "author": { "name": "yuhin-chiu" },
   "commands": [
