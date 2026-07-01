@@ -29,6 +29,27 @@ Expand `~` to the actual home directory:
 
 Store the resolved path as `INSTALL_DIR`.
 
+### Persist the install path (critical)
+
+The other commands (`start` / `stop` / `status` / `open`) must be able to find the
+install dir no matter which directory the user runs them from. Write the resolved
+`INSTALL_DIR` to a fixed marker file `~/.local-usage/install-path`:
+
+**macOS/Linux:**
+```bash
+mkdir -p "$HOME/.local-usage"
+printf '%s' "$INSTALL_DIR" > "$HOME/.local-usage/install-path"
+```
+
+**Windows (PowerShell):**
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.local-usage" | Out-Null
+[System.IO.File]::WriteAllText("$env:USERPROFILE\.local-usage\install-path", $INSTALL_DIR)
+```
+
+> Without this marker, the other commands would fall back to the default
+> `~/local-usage` and fail to find a custom install location (e.g. on another drive).
+
 ---
 
 ## Step 3: Clone or update the repo

@@ -2,22 +2,50 @@ Check whether the AI Usage dashboard is running.
 
 ---
 
-## Step 1: Check port 3002 (universal)
+## Step 0: Resolve install directory & port
 
-Regardless of how the service was started, check whether port 3002 is listening:
+The install dir was chosen at `/local-usage:init` and persisted to a marker file.
+Resolve it (fall back to `~/local-usage` if the marker is missing).
 
 **macOS/Linux:**
 ```bash
-lsof -i :3002 | grep LISTEN
+INSTALL_DIR="$(cat "$HOME/.local-usage/install-path" 2>/dev/null)"
+[ -z "$INSTALL_DIR" ] && INSTALL_DIR="$HOME/local-usage"
+PORT="$(node -e "try{process.stdout.write(String(require(process.argv[1]).port||3002))}catch{process.stdout.write('3002')}" "$INSTALL_DIR/local-usage.config.json" 2>/dev/null)"
+[ -z "$PORT" ] && PORT=3002
+echo "INSTALL_DIR=$INSTALL_DIR  PORT=$PORT"
 ```
 
 **Windows (PowerShell):**
 ```powershell
-Get-NetTCPConnection -LocalPort 3002 -State Listen -ErrorAction SilentlyContinue
+$marker = "$env:USERPROFILE\.local-usage\install-path"
+$INSTALL_DIR = if (Test-Path $marker) { (Get-Content $marker -Raw).Trim() } else { "$env:USERPROFILE\local-usage" }
+$cfg = Join-Path $INSTALL_DIR "local-usage.config.json"
+$PORT = if (Test-Path $cfg) { try { [int]((Get-Content $cfg -Raw | ConvertFrom-Json).port) } catch { 3002 } } else { 3002 }
+if (-not $PORT) { $PORT = 3002 }
+"INSTALL_DIR=$INSTALL_DIR  PORT=$PORT"
+```
+
+Use `<INSTALL_DIR>` / `<PORT>` below.
+
+---
+
+## Step 1: Check the configured port (universal)
+
+Regardless of how the service was started, check whether the port is listening:
+
+**macOS/Linux:**
+```bash
+lsof -i :<PORT> | grep LISTEN
+```
+
+**Windows (PowerShell):**
+```powershell
+Get-NetTCPConnection -LocalPort <PORT> -State Listen -ErrorAction SilentlyContinue
 ```
 
 If the port is active → service is running, report:
-> "✓ AI Usage Dashboard is running at http://localhost:3002/dashboard
+> "✓ AI Usage Dashboard is running at http://localhost:<PORT>/dashboard
 >
 > Use `/local-usage:open` to open it, or `/local-usage:query` to see today's usage inline."
 
@@ -34,7 +62,7 @@ pm2 list
 
 If project-level PM2 (run from install dir):
 ```bash
-cd ~/local-usage && npx pm2 list
+cd "<INSTALL_DIR>" && npx pm2 list
 ```
 
 Look for `local-usage` process:

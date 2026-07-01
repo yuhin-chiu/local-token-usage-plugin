@@ -4,6 +4,17 @@
 
 ---
 
+## [1.2.0] - 2026-07-01
+
+### 修复（支持任意安装目录）
+- **根因**：`init` 选择的安装目录（可自定义，如装到 `D:\code3\local-usage`）从未被持久化，导致 `start`/`stop`/`status`/`open` 全部写死 `~/local-usage` 和端口 `3002`，装在非默认位置就无法运行。
+- `/local-usage:init` 新增「持久化安装路径」：把解析出的 `INSTALL_DIR` 写入固定标记文件 `~/.local-usage/install-path`。
+- `/local-usage:start`、`stop`、`status`、`open` 各新增 **Step 0**：从标记文件读取真实 `INSTALL_DIR` 与 `PORT`（读不到才回退默认 `~/local-usage` / `3002`），后续步骤一律使用变量而非写死值。
+- `/local-usage:start` 全局 PM2 模式改用 `pm2 start "<INSTALL_DIR>/ecosystem.config.js"`（可注册+启动，不再依赖进程已按名字注册），修复首次启动把 `local-usage` 当当前目录脚本路径而失败的问题。
+- 无 PM2 模式改用 `next start -p <PORT>`，尊重自定义端口。
+
+---
+
 ## [1.1.0] - 2026-06-29
 
 ### 插件命令

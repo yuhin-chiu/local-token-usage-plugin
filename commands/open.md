@@ -2,25 +2,54 @@ Open the AI Usage dashboard in the default browser.
 
 ---
 
-## Step 1: Detect OS and open
+## Step 0: Resolve the configured port
 
-**macOS:**
-```bash
-open http://localhost:3002/dashboard
-```
+The port lives in `local-usage.config.json` inside the install dir (chosen at
+`/local-usage:init` and persisted to a marker file). Resolve it, falling back to
+`3002`.
 
-**Linux:**
+**macOS/Linux:**
 ```bash
-xdg-open http://localhost:3002/dashboard
+INSTALL_DIR="$(cat "$HOME/.local-usage/install-path" 2>/dev/null)"
+[ -z "$INSTALL_DIR" ] && INSTALL_DIR="$HOME/local-usage"
+PORT="$(node -e "try{process.stdout.write(String(require(process.argv[1]).port||3002))}catch{process.stdout.write('3002')}" "$INSTALL_DIR/local-usage.config.json" 2>/dev/null)"
+[ -z "$PORT" ] && PORT=3002
+echo "PORT=$PORT"
 ```
 
 **Windows (PowerShell):**
 ```powershell
-Start-Process "http://localhost:3002/dashboard"
+$marker = "$env:USERPROFILE\.local-usage\install-path"
+$INSTALL_DIR = if (Test-Path $marker) { (Get-Content $marker -Raw).Trim() } else { "$env:USERPROFILE\local-usage" }
+$cfg = Join-Path $INSTALL_DIR "local-usage.config.json"
+$PORT = if (Test-Path $cfg) { try { [int]((Get-Content $cfg -Raw | ConvertFrom-Json).port) } catch { 3002 } } else { 3002 }
+if (-not $PORT) { $PORT = 3002 }
+"PORT=$PORT"
+```
+
+Use `<PORT>` below.
+
+---
+
+## Step 1: Detect OS and open
+
+**macOS:**
+```bash
+open http://localhost:<PORT>/dashboard
+```
+
+**Linux:**
+```bash
+xdg-open http://localhost:<PORT>/dashboard
+```
+
+**Windows (PowerShell):**
+```powershell
+Start-Process "http://localhost:<PORT>/dashboard"
 ```
 
 Tell the user:
-> "Opening http://localhost:3002/dashboard in your browser."
+> "Opening http://localhost:<PORT>/dashboard in your browser."
 
 ---
 
