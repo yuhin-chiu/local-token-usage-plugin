@@ -10,6 +10,11 @@ Resolve it (fall back to `~/local-usage` if the marker is missing).
 **macOS/Linux:**
 ```bash
 INSTALL_DIR="$(cat "$CLAUDE_PLUGIN_DATA/install-path" 2>/dev/null)"
+# Defensive fallback: scan the canonical <plugin>-<marketplace> path
+if [ -z "$INSTALL_DIR" ]; then
+  p="$HOME/.claude/plugins/data/local-usage-local-usage/install-path"
+  [ -f "$p" ] && INSTALL_DIR="$(cat "$p" 2>/dev/null)"
+fi
 [ -z "$INSTALL_DIR" ] && INSTALL_DIR="$HOME/local-usage"
 PORT="$(node -e "try{process.stdout.write(String(require(process.argv[1]).port||3002))}catch{process.stdout.write('3002')}" "$INSTALL_DIR/local-usage.config.json" 2>/dev/null)"
 [ -z "$PORT" ] && PORT=3002
@@ -18,8 +23,14 @@ echo "INSTALL_DIR=$INSTALL_DIR  PORT=$PORT"
 
 **Windows (PowerShell):**
 ```powershell
-$marker = if ($env:CLAUDE_PLUGIN_DATA) { Join-Path $env:CLAUDE_PLUGIN_DATA "install-path" } else { "" }
-$INSTALL_DIR = if ($marker -and (Test-Path $marker)) { (Get-Content $marker -Raw).Trim() } else { "$env:USERPROFILE\local-usage" }
+function Get-LocalUsageInstallDir {
+  $candidates = @()
+  if ($env:CLAUDE_PLUGIN_DATA) { $candidates += (Join-Path $env:CLAUDE_PLUGIN_DATA "install-path") }
+  $candidates += (Join-Path $env:USERPROFILE ".claude\plugins\data\local-usage-local-usage\install-path")
+  foreach ($p in $candidates) { if (Test-Path $p) { return (Get-Content $p -Raw).Trim() } }
+  return "$env:USERPROFILE\local-usage"
+}
+$INSTALL_DIR = Get-LocalUsageInstallDir
 $cfg = Join-Path $INSTALL_DIR "local-usage.config.json"
 $PORT = if (Test-Path $cfg) { try { [int]((Get-Content $cfg -Raw | ConvertFrom-Json).port) } catch { 3002 } } else { 3002 }
 if (-not $PORT) { $PORT = 3002 }

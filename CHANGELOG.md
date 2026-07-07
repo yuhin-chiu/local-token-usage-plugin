@@ -4,6 +4,19 @@
 
 ---
 
+## [1.4.2] - 2026-07-07
+
+### 修复（`CLAUDE_PLUGIN_DATA` 缺失时丢失自定义安装目录）
+- **根因**：`start` / `stop` / `status` / `open` / `update` 的 Step 0 仅依赖 `$CLAUDE_PLUGIN_DATA` 读 marker，env var 一旦未注入（裸终端跑、自定义 host 启动等）就直接 fallback 到默认 `~/local-usage`，导致装在自定义目录（如 `D:\code3\local-usage`）的命令全部指错路径。
+- 修复：所有 runtime 命令的 Step 0 在 marker 读不到时，**先扫固定路径 `~/.claude/plugins/data/local-usage-local-usage/install-path`**，找不到才回退 `~/local-usage`。两套平台（POSIX + PowerShell）均补齐。
+- `init` 写 marker 时改为 `MARKER_DIR="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/local-usage-local-usage}"`：env 在则写 env 路径、否则写固定路径，保证新装未来也能被 fallback 命中。
+- `update` 的 NO_MARKER 行为保留（marker 真缺时仍转交用户重选）—— fallback 只在 marker 文件**存在但 env 没注入**的场景生效。
+
+### 修复（无 PM2 模式的日志路径与 install 解耦）
+- `init` / `update` / `start` 的 `nohup ... > ~/local-usage.log` 改为 `> "$INSTALL_DIR/local-usage.log"`：自定义安装目录时日志跟 install 在一起，不再漂到家目录。
+
+---
+
 ## [1.4.0] - 2026-07-01
 
 ### 重构（`/local-usage:update` 升级为「体检 → 修复 → 确保运行」的 doctor 命令）

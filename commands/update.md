@@ -22,6 +22,11 @@ Resolve where the install lives and confirm it's a real, git-cloned dashboard.
 **macOS/Linux:**
 ```bash
 INSTALL_DIR="$(cat "$CLAUDE_PLUGIN_DATA/install-path" 2>/dev/null)"
+# Defensive fallback: scan the canonical <plugin>-<marketplace> path
+if [ -z "$INSTALL_DIR" ]; then
+  p="$HOME/.claude/plugins/data/local-usage-local-usage/install-path"
+  [ -f "$p" ] && INSTALL_DIR="$(cat "$p" 2>/dev/null)"
+fi
 if [ -z "$INSTALL_DIR" ] || [ ! -d "$INSTALL_DIR" ]; then
   echo "NO_MARKER"
 elif [ ! -f "$INSTALL_DIR/package.json" ] || [ ! -f "$INSTALL_DIR/ecosystem.config.js" ] || [ ! -d "$INSTALL_DIR/.git" ]; then
@@ -33,8 +38,14 @@ fi
 
 **Windows (PowerShell):**
 ```powershell
-$marker = if ($env:CLAUDE_PLUGIN_DATA) { Join-Path $env:CLAUDE_PLUGIN_DATA "install-path" } else { "" }
-$INSTALL_DIR = if ($marker -and (Test-Path $marker)) { (Get-Content $marker -Raw).Trim() } else { "" }
+function Get-LocalUsageInstallDir {
+  $candidates = @()
+  if ($env:CLAUDE_PLUGIN_DATA) { $candidates += (Join-Path $env:CLAUDE_PLUGIN_DATA "install-path") }
+  $candidates += (Join-Path $env:USERPROFILE ".claude\plugins\data\local-usage-local-usage\install-path")
+  foreach ($p in $candidates) { if (Test-Path $p) { return (Get-Content $p -Raw).Trim() } }
+  return ""
+}
+$INSTALL_DIR = Get-LocalUsageInstallDir
 if (-not $INSTALL_DIR -or -not (Test-Path $INSTALL_DIR)) { "NO_MARKER" }
 elseif (-not (Test-Path (Join-Path $INSTALL_DIR "package.json")) -or -not (Test-Path (Join-Path $INSTALL_DIR "ecosystem.config.js")) -or -not (Test-Path (Join-Path $INSTALL_DIR ".git"))) { "INVALID:$INSTALL_DIR" }
 else { "OK:$INSTALL_DIR" }
@@ -245,7 +256,7 @@ npx pm2 save
 ### RUN_MODE = none
 ```bash
 # macOS/Linux
-cd "<INSTALL_DIR>" && nohup npx next start -p <PORT> > ~/local-usage.log 2>&1 &
+cd "<INSTALL_DIR>" && nohup npx next start -p <PORT> > "<INSTALL_DIR>/local-usage.log" 2>&1 &
 ```
 ```powershell
 # Windows
@@ -263,7 +274,7 @@ Get-NetTCPConnection -LocalPort <PORT> -State Listen -ErrorAction SilentlyContin
 - **Listening** → success. Continue to Step 7.
 - **Not listening** → look at the logs and fix the root cause, then retry this step:
   - PM2 modes: `pm2 logs local-usage --lines 30 --nostream` (or `npx pm2 logs ...`)
-  - no-PM2: `cat ~/local-usage.log`
+  - no-PM2: `cat "<INSTALL_DIR>/local-usage.log"`
   - Common fixes: port taken → tell the user (hard blocker unless they change
     `port` in config); build error → back to Step 5; missing dep → `npm install`.
   Keep going until the port is listening.

@@ -38,14 +38,19 @@ install dir no matter which directory the user runs them from. Write the resolve
 
 **macOS/Linux:**
 ```bash
-mkdir -p "$CLAUDE_PLUGIN_DATA"
-printf '%s' "$INSTALL_DIR" > "$CLAUDE_PLUGIN_DATA/install-path"
+# If $CLAUDE_PLUGIN_DATA isn't injected by the host (rare — running standalone),
+# fall back to the canonical <plugin>-<marketplace> path so other commands can
+# still find the install via the defensive scan.
+MARKER_DIR="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/local-usage-local-usage}"
+mkdir -p "$MARKER_DIR"
+printf '%s' "$INSTALL_DIR" > "$MARKER_DIR/install-path"
 ```
 
 **Windows (PowerShell):**
 ```powershell
-New-Item -ItemType Directory -Force $env:CLAUDE_PLUGIN_DATA | Out-Null
-[System.IO.File]::WriteAllText((Join-Path $env:CLAUDE_PLUGIN_DATA "install-path"), $INSTALL_DIR)
+$markerDir = if ($env:CLAUDE_PLUGIN_DATA) { $env:CLAUDE_PLUGIN_DATA } else { Join-Path $env:USERPROFILE ".claude\plugins\data\local-usage-local-usage" }
+New-Item -ItemType Directory -Force $markerDir | Out-Null
+[System.IO.File]::WriteAllText((Join-Path $markerDir "install-path"), $INSTALL_DIR)
 ```
 
 > `$CLAUDE_PLUGIN_DATA` is injected by Claude Code when a plugin command runs and
@@ -270,7 +275,7 @@ npx pm2 startup
 **macOS/Linux** — 后台运行并输出日志到文件：
 ```bash
 cd "$INSTALL_DIR"
-nohup npx next start -p $PORT > ~/local-usage.log 2>&1 &
+nohup npx next start -p $PORT > "$INSTALL_DIR/local-usage.log" 2>&1 &
 echo "Started. PID: $!"
 ```
 
@@ -303,4 +308,4 @@ Get-NetTCPConnection -LocalPort $PORT -State Listen -ErrorAction SilentlyContinu
 
 如果端口无响应，根据启动模式显示日志：
 - PM2 模式：`pm2 logs local-usage --lines 30 --nostream`（全局）或 `npx pm2 logs local-usage --lines 30 --nostream`（项目级）
-- 无 PM2 模式：`cat ~/local-usage.log`（macOS/Linux）
+- 无 PM2 模式：`cat "$INSTALL_DIR/local-usage.log"`（macOS/Linux）
