@@ -4,6 +4,22 @@
 
 ---
 
+## [1.5.0] - 2026-07-12
+
+### 新增（`/update` 支持离线 / 跳过网络）
+- `/local-usage:update` 新增 `--no-pull`（别名 `--local` / `--offline`）：纯本地体检修复，全程不联网，适合只想修本地问题或人在离线时。
+
+### 变更（`/update` 拉取改为「按需 + 网络可选」，治「反复 pull」）
+- Step 3 由无条件 `git pull` 改为 `git fetch` 后比对 `HEAD` 与 `@{u}`，**仅当本地落后才 `merge --ff-only`**；已是最新 / 离线 / fetch 失败一律 `PULLED=no`，跳过 `npm install` / `npm run build`，只验证服务在监听。
+- pull 全程 **best-effort**：离线或 fetch 失败不再中断 doctor 流程，继续本地体检修复。
+
+### 新增（运行命令校验安装目录，治跨机器 / 移动目录后的玄学失败）
+- `start` 新增 Step 0a **硬校验**：安装目录 / `package.json` / `ecosystem.config.js` 缺失即停，提示跑 `/update` 重新定位修复，而非甩一个 PM2/next 报错。
+- `status` **软校验**：不阻断端口检测（端口才是「是否在跑」的真相源），但端口未监听且安装缺失时，报告改为「安装丢失 / 被移动 → 跑 `/update`」。
+- `stop` 项目级 PM2 段补说明：安装目录丢失时回退到「按端口 kill」（全局 PM2 / no-PM2 本就不依赖目录）。
+
+---
+
 ## [1.4.2] - 2026-07-07
 
 ### 修复（`CLAUDE_PLUGIN_DATA` 缺失时丢失自定义安装目录）

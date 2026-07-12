@@ -13,6 +13,17 @@ don't stop at "I ran the command", stop at "it's up".
 disk. If there's no install directory at all (or it isn't the dashboard repo), it
 hands off to `/local-usage:init`.
 
+## Arguments
+
+Optional flag in the command arguments:
+
+- `--no-pull` (aliases `--local`, `--offline`) → **skip the network step entirely.**
+  Run a pure local repair (config / deps / build / service) without contacting the
+  remote. Use this to fix a local issue fast, or when you're offline. Step 3 honors it.
+
+Even without the flag, Step 3 never re-downloads when the code is already current and
+never fails just because the network is down — see below.
+
 ---
 
 ## Step 1: Locate & validate the install directory
@@ -92,17 +103,42 @@ build or run without it.
 
 ---
 
-## Step 3: Refresh the code
+## Step 3: Refresh the code (network-optional)
 
-Step 1 already guaranteed this is a git repo, so pull the latest:
+Step 1 guaranteed this is a git repo. Sync the latest commits, but treat the network
+as **optional**: a doctor run must still work offline, and it must not re-download or
+rebuild when nothing changed.
 
+**If the user passed `--no-pull` / `--local` / `--offline`** (see Arguments): skip
+this whole step, set `PULLED=no`, and go to Step 4.
+
+Otherwise fetch, then fast-forward **only when the local branch is actually behind** —
+and never let a failed fetch abort the run:
+
+**macOS/Linux:**
 ```bash
-cd "<INSTALL_DIR>" && git pull
+cd "<INSTALL_DIR>" || exit 1
+if git fetch --quiet 2>/dev/null; then
+  LOCAL="$(git rev-parse HEAD 2>/dev/null)"
+  REMOTE="$(git rev-parse '@{u}' 2>/dev/null)"
+  if [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    git merge --ff-only 2>/dev/null && echo "PULLED=yes" \
+      || echo "PULLED=no (diverged/local changes — skipping, nothing lost)"
+  else
+    echo "PULLED=no (already up to date)"
+  fi
+else
+  echo "PULLED=no (offline or fetch failed — continuing with local repair)"
+fi
 ```
 
-Note whether the pull actually brought in new commits (git prints `Already
-up to date.` when it didn't). Call this `PULLED=yes|no` — Step 5 uses it to decide
-whether a rebuild is needed.
+**Windows (PowerShell):** same logic — `git fetch`; compare `git rev-parse HEAD` vs
+`git rev-parse '@{u}'`; run `git merge --ff-only` only if they differ; on any fetch
+failure just report offline and continue.
+
+`PULLED=yes` **only** when new commits were fast-forwarded in. Step 5 keys the
+reinstall/rebuild off it, so an up-to-date (or offline) run does **zero** extra
+network or build work — it just verifies the service is up.
 
 ---
 

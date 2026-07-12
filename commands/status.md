@@ -39,6 +39,23 @@ if (-not $PORT) { $PORT = 3002 }
 
 Use `<INSTALL_DIR>` / `<PORT>` below.
 
+### Step 0a: Note whether the install still exists
+
+Don't gate on this — the port check below is the source of truth for "running". But
+record whether the resolved path is a real install, so a stopped/not-found result can
+tell the user *why*:
+
+**macOS/Linux:**
+```bash
+if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/package.json" ]; then echo "INSTALL_OK"; else echo "INSTALL_MISSING:$INSTALL_DIR"; fi
+```
+**Windows (PowerShell):**
+```powershell
+if ((Test-Path $INSTALL_DIR) -and (Test-Path (Join-Path $INSTALL_DIR "package.json"))) { "INSTALL_OK" } else { "INSTALL_MISSING:$INSTALL_DIR" }
+```
+
+Carry this as `INSTALL_OK` / `INSTALL_MISSING` into the reporting below.
+
 ---
 
 ## Step 1: Check the configured port (universal)
@@ -83,3 +100,8 @@ Look for `local-usage` process:
 
 If neither PM2 is available (no-PM2 mode):
 > "✗ Dashboard is not running. Use `/local-usage:start` to start it."
+
+**Override when `INSTALL_MISSING`** (Step 0a): if the port is not listening *and* the
+install path is missing/moved, don't advise `start` — it can't succeed. Report instead:
+> "✗ Dashboard isn't running and its install at `<INSTALL_DIR>` is missing or was
+> moved. Run `/local-usage:update` to relocate and repair it."

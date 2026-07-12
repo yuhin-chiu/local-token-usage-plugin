@@ -43,6 +43,29 @@ if (-not $PORT) { $PORT = 3002 }
 Use the resolved `$INSTALL_DIR` and `$PORT` in every step below (written as
 `<INSTALL_DIR>` / `<PORT>`).
 
+### Step 0a: Validate the install still exists
+
+The marker holds an absolute path. If the folder was moved, renamed, or deleted
+(common after switching machines or reorganizing disks), that path is stale and
+starting from it fails with a cryptic PM2/next error. Confirm it's a real install
+first:
+
+**macOS/Linux:**
+```bash
+if [ ! -d "$INSTALL_DIR" ] || [ ! -f "$INSTALL_DIR/package.json" ] || [ ! -f "$INSTALL_DIR/ecosystem.config.js" ]; then
+  echo "INSTALL_MISSING:$INSTALL_DIR"
+fi
+```
+**Windows (PowerShell):**
+```powershell
+if (-not (Test-Path $INSTALL_DIR) -or -not (Test-Path (Join-Path $INSTALL_DIR "package.json")) -or -not (Test-Path (Join-Path $INSTALL_DIR "ecosystem.config.js"))) { "INSTALL_MISSING:$INSTALL_DIR" }
+```
+
+If it prints `INSTALL_MISSING`, **stop here** and tell the user (don't try to start):
+> "The dashboard install at `<INSTALL_DIR>` is missing or was moved. Run
+> `/local-usage:update` to relocate and repair it (or `/local-usage:init` if it was
+> never installed)."
+
 ---
 
 ## Step 1: Detect running mode

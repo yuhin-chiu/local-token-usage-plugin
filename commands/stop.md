@@ -73,6 +73,11 @@ If process not found:
 
 ### 项目级 PM2 模式
 
+Project PM2 lives inside `INSTALL_DIR`, so it needs the directory. If `INSTALL_DIR`
+is missing or moved (`[ -d "$INSTALL_DIR" ]` is false), the `cd`/`npx pm2` below can't
+run — **fall back to the no-PM2 method** (kill by port) instead; the service is bound
+to `<PORT>` either way.
+
 ```bash
 cd "<INSTALL_DIR>"
 npx pm2 stop local-usage
