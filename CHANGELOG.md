@@ -4,6 +4,20 @@
 
 ---
 
+## [1.6.0] - 2026-07-12
+
+### 新增（共享定位脚本 `scripts/resolve.js` + 自动放行，治「反复弹框」）
+- 新增只读定位器 `scripts/resolve.js`：一次调用输出 `STATUS` / `INSTALL_DIR` / `PORT` / `MARKER` / `DIR_EXISTS` / `NODE_MAJOR`，成为所有命令定位安装、判端口、校验有效性的**唯一真相源**（跨 macOS/Linux/Windows，无需再各写一套双平台探测块）。
+- 新增 **PreToolUse hook**（`hooks/hooks.json` + `hooks/allow.js`）：自动放行本插件运行的低风险命令——`resolve.js`（只读）/ `pm2` / `npx pm2` / `npx next` / `cd` / 只读 `git`（fetch/rev-parse/status/… ）。复合命令仅当**每一段**都在白名单才放行（`cd x && rm -rf y` 不会被 `cd` 带过），其余一律静默回退到正常提示，绝不 deny、不扩权。
+
+### 变更（命令收敛到 `resolve.js`，少一次 `node` 调用与弹框）
+- `init` / `update` / `start` / `stop` / `status` / `open` 的 Step 0/1 定位逻辑统一替换为一行 `node "${CLAUDE_PLUGIN_ROOT}/scripts/resolve.js"`，删除各自 ~30 行 bash+PowerShell 双平台块。
+- `node --version` 环境检查**并入** `resolve.js` 输出的 `NODE_MAJOR`：既然定位那一步已经跑了 Node，就不再单独跑第二次 `node --version`（也省一次弹框）。`update` / `init` 直接读 `NODE_MAJOR`，<18 才停。
+- `init` Step 2 新增**自动定位**：`resolve.js` 报 `STATUS=FOUND` 时，把已检测到的安装作为首选项（避免误重装），而非无脑默认 `~/local-usage`。
+- `start` Step 0a / `status` Step 0a 的安装校验改用 `resolve.js` 的 `STATUS`（FOUND / STALE / NONE），不再各自重写探测。
+
+---
+
 ## [1.5.0] - 2026-07-12
 
 ### 新增（`/update` 支持离线 / 跳过网络）

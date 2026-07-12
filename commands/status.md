@@ -4,57 +4,22 @@ Check whether the AI Usage dashboard is running.
 
 ## Step 0: Resolve install directory & port
 
-The install dir was chosen at `/local-usage:init` and persisted to a marker file.
-Resolve it (fall back to `~/local-usage` if the marker is missing).
+Resolve the marker, port, and install validity with the shared resolver (one call,
+all platforms):
 
-**macOS/Linux:**
 ```bash
-INSTALL_DIR="$(cat "$CLAUDE_PLUGIN_DATA/install-path" 2>/dev/null)"
-# Defensive fallback: scan the canonical <plugin>-<marketplace> path
-if [ -z "$INSTALL_DIR" ]; then
-  p="$HOME/.claude/plugins/data/local-usage-local-usage/install-path"
-  [ -f "$p" ] && INSTALL_DIR="$(cat "$p" 2>/dev/null)"
-fi
-[ -z "$INSTALL_DIR" ] && INSTALL_DIR="$HOME/local-usage"
-PORT="$(node -e "try{process.stdout.write(String(require(process.argv[1]).port||3002))}catch{process.stdout.write('3002')}" "$INSTALL_DIR/local-usage.config.json" 2>/dev/null)"
-[ -z "$PORT" ] && PORT=3002
-echo "INSTALL_DIR=$INSTALL_DIR  PORT=$PORT"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/resolve.js"
 ```
 
-**Windows (PowerShell):**
-```powershell
-function Get-LocalUsageInstallDir {
-  $candidates = @()
-  if ($env:CLAUDE_PLUGIN_DATA) { $candidates += (Join-Path $env:CLAUDE_PLUGIN_DATA "install-path") }
-  $candidates += (Join-Path $env:USERPROFILE ".claude\plugins\data\local-usage-local-usage\install-path")
-  foreach ($p in $candidates) { if (Test-Path $p) { return (Get-Content $p -Raw).Trim() } }
-  return "$env:USERPROFILE\local-usage"
-}
-$INSTALL_DIR = Get-LocalUsageInstallDir
-$cfg = Join-Path $INSTALL_DIR "local-usage.config.json"
-$PORT = if (Test-Path $cfg) { try { [int]((Get-Content $cfg -Raw | ConvertFrom-Json).port) } catch { 3002 } } else { 3002 }
-if (-not $PORT) { $PORT = 3002 }
-"INSTALL_DIR=$INSTALL_DIR  PORT=$PORT"
-```
-
+It prints `STATUS` / `INSTALL_DIR` / `PORT` / `MARKER` / `DIR_EXISTS` / `NODE_MAJOR`.
 Use `<INSTALL_DIR>` / `<PORT>` below.
 
 ### Step 0a: Note whether the install still exists
 
 Don't gate on this — the port check below is the source of truth for "running". But
-record whether the resolved path is a real install, so a stopped/not-found result can
-tell the user *why*:
-
-**macOS/Linux:**
-```bash
-if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/package.json" ]; then echo "INSTALL_OK"; else echo "INSTALL_MISSING:$INSTALL_DIR"; fi
-```
-**Windows (PowerShell):**
-```powershell
-if ((Test-Path $INSTALL_DIR) -and (Test-Path (Join-Path $INSTALL_DIR "package.json"))) { "INSTALL_OK" } else { "INSTALL_MISSING:$INSTALL_DIR" }
-```
-
-Carry this as `INSTALL_OK` / `INSTALL_MISSING` into the reporting below.
+carry the resolver's `STATUS` so a stopped/not-found result can tell the user *why*:
+treat `STATUS=FOUND` as **`INSTALL_OK`**, and `STATUS=STALE`/`NONE` as
+**`INSTALL_MISSING`** (path `<INSTALL_DIR>`) in the reporting below.
 
 ---
 

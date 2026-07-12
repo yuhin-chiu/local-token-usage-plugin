@@ -2,22 +2,38 @@ Install the AI Usage dashboard on this machine. Run this once — it clones the 
 
 ---
 
-## Step 1: Check Node.js
+## Step 1: Check environment & detect any existing install
+
+Run the shared resolver once — it reports the Node version **and** whether a
+dashboard is already installed on this machine, so Step 2 can offer that install
+instead of blindly defaulting to `~/local-usage`:
 
 ```bash
-node --version
+node "${CLAUDE_PLUGIN_ROOT}/scripts/resolve.js"
 ```
 
-If Node.js is not installed or version is below 18, tell the user:
-> "Node.js 18+ is required. Please install it from https://nodejs.org and re-run /local-usage:init."
+It prints `STATUS` / `INSTALL_DIR` / `PORT` / `MARKER` / `DIR_EXISTS` / `NODE_MAJOR`.
 
-Then stop.
+- If `NODE_MAJOR` is below **18** — or the resolver didn't run at all (Node missing) —
+  tell the user:
+  > "Node.js 18+ is required. Please install it from https://nodejs.org and re-run /local-usage:init."
+
+  Then stop.
+- Otherwise carry `STATUS` and `INSTALL_DIR` forward to Step 2.
 
 ---
 
 ## Step 2: Determine install directory
 
-Ask the user via AskUserQuestion:
+**If Step 1 reported `STATUS=FOUND`** — a valid, git-cloned dashboard already exists
+at that `INSTALL_DIR`. Don't reinstall blindly; offer it first via AskUserQuestion:
+- **Use the detected install `<INSTALL_DIR>`（推荐）** → reuse it. Keep this
+  `INSTALL_DIR`; Step 3 will see it already EXISTS and just pull instead of cloning.
+  (If the user only wanted to repair/relaunch, `/local-usage:update` is the better
+  fit — mention it.)
+- **Install fresh to a different path** → fall through to the choice below.
+
+**Otherwise** (`STATUS=STALE`/`NONE` — no valid install detected) ask where to install:
 - Question: "Where should the dashboard be installed?"
 - Options:
   - `~/local-usage` (default, recommended)

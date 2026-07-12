@@ -28,49 +28,38 @@ never fails just because the network is down — see below.
 
 ## Step 1: Locate & validate the install directory
 
-Resolve where the install lives and confirm it's a real, git-cloned dashboard.
+Resolve where the install lives with the shared resolver — the single source of
+truth for the marker, port, and install validity, used by every command (works on
+macOS/Linux/Windows, no per-OS block needed):
 
-**macOS/Linux:**
 ```bash
-INSTALL_DIR="$(cat "$CLAUDE_PLUGIN_DATA/install-path" 2>/dev/null)"
-# Defensive fallback: scan the canonical <plugin>-<marketplace> path
-if [ -z "$INSTALL_DIR" ]; then
-  p="$HOME/.claude/plugins/data/local-usage-local-usage/install-path"
-  [ -f "$p" ] && INSTALL_DIR="$(cat "$p" 2>/dev/null)"
-fi
-if [ -z "$INSTALL_DIR" ] || [ ! -d "$INSTALL_DIR" ]; then
-  echo "NO_MARKER"
-elif [ ! -f "$INSTALL_DIR/package.json" ] || [ ! -f "$INSTALL_DIR/ecosystem.config.js" ] || [ ! -d "$INSTALL_DIR/.git" ]; then
-  echo "INVALID:$INSTALL_DIR"
-else
-  echo "OK:$INSTALL_DIR"
-fi
+node "${CLAUDE_PLUGIN_ROOT}/scripts/resolve.js"
 ```
 
-**Windows (PowerShell):**
-```powershell
-function Get-LocalUsageInstallDir {
-  $candidates = @()
-  if ($env:CLAUDE_PLUGIN_DATA) { $candidates += (Join-Path $env:CLAUDE_PLUGIN_DATA "install-path") }
-  $candidates += (Join-Path $env:USERPROFILE ".claude\plugins\data\local-usage-local-usage\install-path")
-  foreach ($p in $candidates) { if (Test-Path $p) { return (Get-Content $p -Raw).Trim() } }
-  return ""
-}
-$INSTALL_DIR = Get-LocalUsageInstallDir
-if (-not $INSTALL_DIR -or -not (Test-Path $INSTALL_DIR)) { "NO_MARKER" }
-elseif (-not (Test-Path (Join-Path $INSTALL_DIR "package.json")) -or -not (Test-Path (Join-Path $INSTALL_DIR "ecosystem.config.js")) -or -not (Test-Path (Join-Path $INSTALL_DIR ".git"))) { "INVALID:$INSTALL_DIR" }
-else { "OK:$INSTALL_DIR" }
+It prints:
+```
+STATUS=FOUND|STALE|NONE
+INSTALL_DIR=<path>
+PORT=<port>
+MARKER=env|canonical|none
+DIR_EXISTS=yes|no
+NODE_MAJOR=<major>
 ```
 
-- **OK** → use this `INSTALL_DIR`. Refresh the marker anyway (Step 1a), continue.
-- **NO_MARKER** → ask the user via **AskUserQuestion** where the install is:
+Act on `STATUS` (use `INSTALL_DIR` / `PORT` from the output below):
+
+- **FOUND** → it's a real, git-cloned dashboard. Use this `INSTALL_DIR`; refresh the
+  marker (Step 1a) and continue.
+- **STALE / NONE with `DIR_EXISTS=no`** (nothing usable recorded — no marker, or the
+  recorded folder is gone, e.g. after moving machines) → ask the user via
+  **AskUserQuestion** where the install is:
   - **Default `~/local-usage`** (only offer if it exists on disk)
   - **Custom path** — user types the absolute path (e.g. `D:\code3\local-usage`)
   - **Not installed yet** → tell them to run `/local-usage:init`, then **Stop.**
 
-  Re-run the validation above against the chosen path.
-- **INVALID** (the directory exists but isn't a git-cloned dashboard — e.g. a
-  hand-copied folder, or the wrong directory) → tell the user:
+  Re-run the resolver against the chosen path (or validate it) before continuing.
+- **STALE with `DIR_EXISTS=yes`** (the directory is there but isn't a git-cloned
+  dashboard — a hand-copied folder or the wrong directory) → tell the user:
   > "`<INSTALL_DIR>` isn't a valid dashboard install (needs to be a `git clone` of
   > the repo). Run `/local-usage:init` to install it cleanly."
 
@@ -78,28 +67,31 @@ else { "OK:$INSTALL_DIR" }
 
 ### Step 1a: Persist the resolved path
 
+Write the resolved `<INSTALL_DIR>` back to the marker. Use the canonical data dir when
+`$CLAUDE_PLUGIN_DATA` isn't injected, so the marker still lands somewhere the resolver
+scans.
+
 ```bash
 # macOS/Linux
-mkdir -p "$CLAUDE_PLUGIN_DATA"
-printf '%s' "$INSTALL_DIR" > "$CLAUDE_PLUGIN_DATA/install-path"
+MARKER_DIR="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/local-usage-local-usage}"
+mkdir -p "$MARKER_DIR"
+printf '%s' "<INSTALL_DIR>" > "$MARKER_DIR/install-path"
 ```
 ```powershell
 # Windows
-New-Item -ItemType Directory -Force $env:CLAUDE_PLUGIN_DATA | Out-Null
-[System.IO.File]::WriteAllText((Join-Path $env:CLAUDE_PLUGIN_DATA "install-path"), $INSTALL_DIR)
+$markerDir = if ($env:CLAUDE_PLUGIN_DATA) { $env:CLAUDE_PLUGIN_DATA } else { Join-Path $env:USERPROFILE ".claude\plugins\data\local-usage-local-usage" }
+New-Item -ItemType Directory -Force $markerDir | Out-Null
+[System.IO.File]::WriteAllText((Join-Path $markerDir "install-path"), "<INSTALL_DIR>")
 ```
 
 ---
 
 ## Step 2: Check the environment
 
-```bash
-node --version
-```
-
-If Node.js is missing or below 18, tell the user to install Node 18+ from
-https://nodejs.org and re-run `/local-usage:update`. **Stop** — nothing below can
-build or run without it.
+No extra call needed — Step 1 already ran Node, so read `NODE_MAJOR` from its output.
+If it's below **18** (or the resolver didn't run at all), tell the user to install
+Node 18+ from https://nodejs.org and re-run `/local-usage:update`. **Stop** — nothing
+below can build or run without it.
 
 ---
 

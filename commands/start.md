@@ -2,69 +2,41 @@ Start the AI Usage dashboard service.
 
 ---
 
-## Step 0: Resolve install directory & port
+## Step 0: Resolve & validate install directory + port
 
-The install directory is chosen during `/local-usage:init` and persisted to a
-marker file. **Always resolve it here** instead of assuming `~/local-usage` — the
-user may have installed to a custom path (e.g. another drive). If the marker is
-missing, fall back to the default `~/local-usage`.
+Resolve where the install lives with the shared resolver — the single source of
+truth for the marker, port, and install validity, used by every command (works on
+macOS/Linux/Windows, no per-OS block needed):
 
-**macOS/Linux:**
 ```bash
-INSTALL_DIR="$(cat "$CLAUDE_PLUGIN_DATA/install-path" 2>/dev/null)"
-# Defensive fallback: scan the canonical <plugin>-<marketplace> path
-# (covers the case where $CLAUDE_PLUGIN_DATA isn't injected by the host)
-if [ -z "$INSTALL_DIR" ]; then
-  p="$HOME/.claude/plugins/data/local-usage-local-usage/install-path"
-  [ -f "$p" ] && INSTALL_DIR="$(cat "$p" 2>/dev/null)"
-fi
-[ -z "$INSTALL_DIR" ] && INSTALL_DIR="$HOME/local-usage"
-PORT="$(node -e "try{process.stdout.write(String(require(process.argv[1]).port||3002))}catch{process.stdout.write('3002')}" "$INSTALL_DIR/local-usage.config.json" 2>/dev/null)"
-[ -z "$PORT" ] && PORT=3002
-echo "INSTALL_DIR=$INSTALL_DIR  PORT=$PORT"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/resolve.js"
 ```
 
-**Windows (PowerShell):**
-```powershell
-function Get-LocalUsageInstallDir {
-  $candidates = @()
-  if ($env:CLAUDE_PLUGIN_DATA) { $candidates += (Join-Path $env:CLAUDE_PLUGIN_DATA "install-path") }
-  $candidates += (Join-Path $env:USERPROFILE ".claude\plugins\data\local-usage-local-usage\install-path")
-  foreach ($p in $candidates) { if (Test-Path $p) { return (Get-Content $p -Raw).Trim() } }
-  return "$env:USERPROFILE\local-usage"
-}
-$INSTALL_DIR = Get-LocalUsageInstallDir
-$cfg = Join-Path $INSTALL_DIR "local-usage.config.json"
-$PORT = if (Test-Path $cfg) { try { [int]((Get-Content $cfg -Raw | ConvertFrom-Json).port) } catch { 3002 } } else { 3002 }
-if (-not $PORT) { $PORT = 3002 }
-"INSTALL_DIR=$INSTALL_DIR  PORT=$PORT"
+It prints:
+```
+STATUS=FOUND|STALE|NONE
+INSTALL_DIR=<path>
+PORT=<port>
+MARKER=env|canonical|none
+DIR_EXISTS=yes|no
+NODE_MAJOR=<major>
 ```
 
-Use the resolved `$INSTALL_DIR` and `$PORT` in every step below (written as
+Use `INSTALL_DIR` / `PORT` from the output in every step below (written as
 `<INSTALL_DIR>` / `<PORT>`).
 
-### Step 0a: Validate the install still exists
+### Step 0a: Gate on STATUS
 
-The marker holds an absolute path. If the folder was moved, renamed, or deleted
-(common after switching machines or reorganizing disks), that path is stale and
-starting from it fails with a cryptic PM2/next error. Confirm it's a real install
-first:
+If the folder was moved, renamed, or deleted (common after switching machines or
+reorganizing disks), starting from a stale path fails with a cryptic PM2/next error.
+The resolver already validated the install, so just act on `STATUS`:
 
-**macOS/Linux:**
-```bash
-if [ ! -d "$INSTALL_DIR" ] || [ ! -f "$INSTALL_DIR/package.json" ] || [ ! -f "$INSTALL_DIR/ecosystem.config.js" ]; then
-  echo "INSTALL_MISSING:$INSTALL_DIR"
-fi
-```
-**Windows (PowerShell):**
-```powershell
-if (-not (Test-Path $INSTALL_DIR) -or -not (Test-Path (Join-Path $INSTALL_DIR "package.json")) -or -not (Test-Path (Join-Path $INSTALL_DIR "ecosystem.config.js"))) { "INSTALL_MISSING:$INSTALL_DIR" }
-```
-
-If it prints `INSTALL_MISSING`, **stop here** and tell the user (don't try to start):
-> "The dashboard install at `<INSTALL_DIR>` is missing or was moved. Run
-> `/local-usage:update` to relocate and repair it (or `/local-usage:init` if it was
-> never installed)."
+- **FOUND** → real, git-cloned install. Continue.
+- **STALE / NONE** (no usable marker, or the recorded folder is gone / isn't a valid
+  install) → **stop here**, don't try to start:
+  > "The dashboard install at `<INSTALL_DIR>` is missing or was moved. Run
+  > `/local-usage:update` to relocate and repair it (or `/local-usage:init` if it was
+  > never installed)."
 
 ---
 
