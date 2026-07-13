@@ -4,6 +4,22 @@
 
 ---
 
+## [1.7.0] - 2026-07-13
+
+### 变更（命令全面脚本化，消除 bash/PowerShell 双写）
+- 继 1.6.0 的 `resolve.js` 之后，把 6 个命令**剩余的确定性逻辑**全部下沉到 `scripts/`，命令 markdown 只留编排（`AskUserQuestion`、`STATUS` gate、诊断→修复→重试循环、pm2 安装/startup 提示）：
+  - `open` → `scripts/open-browser.js`：按 `process.platform` 选 `open`/`xdg-open`/`start`，替代三平台块。
+  - `status` → `scripts/status.js`：Node `net` 试连端口（跨平台零 spawn，替代 `lsof`/`Get-NetTCPConnection` 双写）+ 只读 `pm2 jlist` 探测模式/状态。
+  - `start` / `stop` → `scripts/service.js`：自动探测三模式（global pm2 / npx pm2 / no-PM2）、按模式起停、起后轮询端口；no-PM2 用 Node `spawn(detached)` 替代 `nohup`/`Start-Process`，kill-by-port 按平台收敛在脚本内。**改盘脚本，不进白名单。**
+  - `init` / `update` 机械部分 → `scripts/install.js`（`write-marker` / `write-config` upsert / `sync-config` 补缺键 / `clone` / `pull` 网络可选 / `build` 按需）+ 只读 `scripts/detect-sources.js`。**install.js 改盘、不进白名单。**
+- 跨平台**单一 Node 实现**（`os`/`path`/`child_process`），彻底无 bash+PowerShell 双写；只读脚本（`resolve`/`usage`/`status`/`open-browser`/`detect-sources`）进 hook 白名单不弹框，改盘脚本（`service`/`install`）照常确认。
+
+### 修复（fallback 兼容 `ai-usage` / `local-usage` 两种 slug）
+- **根因**：插件曾 `ai-usage` → `local-usage` 重命名（见下方 1.x 记录），**老用户**注册的 marketplace slug 仍是 `ai-usage`，data 目录为 `local-usage-ai-usage`；而 1.4.2 的 fallback **硬编码** `local-usage-local-usage`，在 `$CLAUDE_PLUGIN_DATA` 未注入时对不上老用户、误报 `NONE`（真实插件运行有 env、一直正常）。
+- 修复：`resolve.js` / `install.js` 的 fallback 改为**扫描** `~/.claude/plugins/data/local-usage-*`，兼容 `ai-usage` / `local-usage` 及未来任意 slug（反转 1.4.2「不兼容旧 slug」的决策——理由：老用户真实存在）。
+
+---
+
 ## [1.6.0] - 2026-07-12
 
 ### 新增（共享定位脚本 `scripts/resolve.js` + 自动放行，治「反复弹框」）
