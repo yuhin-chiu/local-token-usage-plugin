@@ -50,7 +50,7 @@
 |---|------|------|
 | M0 | 定脚本契约 → `scripts/README.md`（CLI 规范：非交互/参数/输出协议/退出码/data-dir 入参） | ✅ |
 | M1 | 试点 `query` → `scripts/usage.js`；`query.md` 变薄；输出逐字节回归 | ✅ |
-| M2 | 只读检测类 `open` + `status` 进脚本；更新 `hooks/allow.js` 白名单；4 状态回归 | 🚧 `open` 完成；剩 `status.js` |
+| M2 | 只读检测类 `open` + `status` 进脚本；更新 `hooks/allow.js` 白名单；4 状态回归 | ✅ |
 | M3 | 启停类 `start` + `stop` → `scripts/service.js`（改盘，不进白名单）；3 运行模式回归 | 🔲 |
 | M4 | `init` + `update` 的**机械部分** → `scripts/install.js`；`AskUserQuestion` 与诊断重试循环留 command；2 主路径回归 | 🔲 |
 
@@ -83,13 +83,19 @@
 - **[M2 ①② 已定]** ① `open-browser.js` **进白名单**（`/open` 用户主动敲、无害 side-effect，不再弹框）；
   ② 回归**简化**——不再做 M1 那种硬核冻结快照对拍；`open-browser` 靠 `--dry-run` 验平台选择 +
   Windows 真开一次目视确认，`status.js` 到时在真实状态跑 + 逻辑评审即可。
-- **[M2 open 完成]** `scripts/open-browser.js`（`--port`/`--path`/`--dry-run`，输出 `URL/OPENER/OPENED`）、
-  `open.md` Step 1 变一行、`hooks/allow.js` 加 open-browser.js 白名单。回归：dry-run 平台选择 ✅、
-  缺 port 退出码 2 ✅、Windows 真开 ✅。**未提交**。
-- **下一步**：M2 剩 `scripts/status.js`（`--port --install-dir` → `PORT_LISTENING`(Node `net` 试连)/
-  `PM2_MODE`/`PM2_STATE`），改 `status.md` 调脚本，`allow.js` 加 status.js 白名单。见「M2 规划」。
-- **换机续接提示**：拉最新 `main` → 读本文件 →「M2 规划」→ 等用户回答 ①②，即可动手。
-  第一步动作是写 `scripts/open-browser.js` + `scripts/status.js`。
+- **[M2 open 完成]** commit `f73b448`：`scripts/open-browser.js`（`--port`/`--path`/`--dry-run`，
+  输出 `URL/OPENER/OPENED`）、`open.md` Step 1 变一行、`hooks/allow.js` 加 open-browser.js 白名单。
+  回归：dry-run 平台选择 ✅、缺 port 退出码 2 ✅、Windows 真开 ✅。
+- **[M2 status 完成]** `scripts/status.js`（`--port --install-dir` → `PORT_LISTENING`(Node `net`
+  试连 127.0.0.1，零 spawn) / `PM2_MODE`(global/npx/none，一次 `pm2 jlist` 回落 `npx pm2 jlist`) /
+  `PM2_STATE`(online/stopped/absent，解析 jlist)）、`status.md` Step 1/2 改调脚本、`allow.js` 加
+  status.js 白名单。回归：端口 yes/no 用临时监听切换 ✅、`no/global/absent` 真实态 ✅、缺参退出码 2 ✅；
+  `online/stopped` 需真 pm2 进程才能造（会污染机器 pm2，按简化不造）靠逻辑评审，Mac 实测列遗留。
+  **M2 status 部分未提交**。
+- **下一步**：M3 —— 启停类 `start` + `stop` → `scripts/service.js`（**改盘，不进白名单**）。
+  service.js 可复用 status.js 的 pm2 探测思路选模式；起停后仍靠 status.js 的端口试连确认。
+- **换机续接提示**：拉最新 `main` → 读本文件 → 从 M3 起。start.md 有三种模式（全局 pm2 /
+  项目 npx pm2 / 无 pm2 nohup），是 M3 的抽取输入。
 
 ## M2 规划（已设计，待用户定 ①② 后执行）
 

@@ -23,50 +23,40 @@ treat `STATUS=FOUND` as **`INSTALL_OK`**, and `STATUS=STALE`/`NONE` as
 
 ---
 
-## Step 1: Check the configured port (universal)
+## Step 1: Probe the port and PM2 (one call, all platforms)
 
-Regardless of how the service was started, check whether the port is listening:
+The probe script does the cross-platform port check (a TCP connect, replacing
+`lsof` / `Get-NetTCPConnection`) and reads PM2 in one shot:
 
-**macOS/Linux:**
 ```bash
-lsof -i :<PORT> | grep LISTEN
+node "${CLAUDE_PLUGIN_ROOT}/scripts/status.js" --port=<PORT> --install-dir="<INSTALL_DIR>"
 ```
 
-**Windows (PowerShell):**
-```powershell
-Get-NetTCPConnection -LocalPort <PORT> -State Listen -ErrorAction SilentlyContinue
+It prints:
+```
+PORT_LISTENING=yes|no          is the dashboard actually running (source of truth)
+PM2_MODE=global|npx|none        which PM2 is available
+PM2_STATE=online|stopped|absent status of the local-usage process
 ```
 
-If the port is active → service is running, report:
+---
+
+## Step 2: Report based on the probe
+
+**`PORT_LISTENING=yes`** → running. Report:
 > "✓ AI Usage Dashboard is running at http://localhost:<PORT>/dashboard
 >
 > Use `/local-usage:open` to open it, or `/local-usage:query` to see today's usage inline."
 
-If the port is not active → service is stopped, continue to Step 2.
+**`PORT_LISTENING=no`** → not running. Use `PM2_STATE` to explain why, but first apply
+the `INSTALL_MISSING` override:
 
----
-
-## Step 2: Check PM2 for more detail (if available)
-
-If global `pm2` is available:
-```bash
-pm2 list
-```
-
-If project-level PM2 (run from install dir):
-```bash
-cd "<INSTALL_DIR>" && npx pm2 list
-```
-
-Look for `local-usage` process:
-- `online` → port check above should have caught this; show the URL
-- `stopped` → report: "✗ Dashboard is stopped. Use `/local-usage:start` to start it."
-- Not listed → report: "✗ No local-usage process registered. Run `/local-usage:start` to start it, or `/local-usage:update` if the install needs repair."
-
-If neither PM2 is available (no-PM2 mode):
-> "✗ Dashboard is not running. Use `/local-usage:start` to start it."
-
-**Override when `INSTALL_MISSING`** (Step 0a): if the port is not listening *and* the
-install path is missing/moved, don't advise `start` — it can't succeed. Report instead:
-> "✗ Dashboard isn't running and its install at `<INSTALL_DIR>` is missing or was
-> moved. Run `/local-usage:update` to relocate and repair it."
+- **`INSTALL_MISSING`** (Step 0a — port not listening *and* install path missing/moved):
+  don't advise `start`, it can't succeed. Report:
+  > "✗ Dashboard isn't running and its install at `<INSTALL_DIR>` is missing or was
+  > moved. Run `/local-usage:update` to relocate and repair it."
+- **`PM2_STATE=stopped`** →
+  > "✗ Dashboard is stopped. Use `/local-usage:start` to start it."
+- **`PM2_STATE=absent`** (registered nowhere, or `PM2_MODE=none` = no-PM2 mode) →
+  > "✗ Dashboard is not running. Use `/local-usage:start` to start it (or
+  > `/local-usage:update` if the install needs repair)."
