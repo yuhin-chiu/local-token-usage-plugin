@@ -48,32 +48,18 @@ Store the resolved path as `INSTALL_DIR`.
 ### Persist the install path (critical)
 
 The other commands (`start` / `stop` / `status` / `open`) must be able to find the
-install dir no matter which directory the user runs them from. Write the resolved
-`INSTALL_DIR` into the plugin's **persistent data directory** (`$CLAUDE_PLUGIN_DATA`)
-— it survives plugin version updates, unlike the versioned install cache:
+install dir no matter which directory the user runs them from. Write the marker with
+the install script — one call, all platforms. It uses `$CLAUDE_PLUGIN_DATA` when the
+host injects it, else the canonical `<plugin>-<marketplace>` path that `resolve.js`
+reads back:
 
-**macOS/Linux:**
 ```bash
-# If $CLAUDE_PLUGIN_DATA isn't injected by the host (rare — running standalone),
-# fall back to the canonical <plugin>-<marketplace> path so other commands can
-# still find the install via the defensive scan.
-MARKER_DIR="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/local-usage-local-usage}"
-mkdir -p "$MARKER_DIR"
-printf '%s' "$INSTALL_DIR" > "$MARKER_DIR/install-path"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=write-marker --install-dir="<INSTALL_DIR>"
 ```
 
-**Windows (PowerShell):**
-```powershell
-$markerDir = if ($env:CLAUDE_PLUGIN_DATA) { $env:CLAUDE_PLUGIN_DATA } else { Join-Path $env:USERPROFILE ".claude\plugins\data\local-usage-local-usage" }
-New-Item -ItemType Directory -Force $markerDir | Out-Null
-[System.IO.File]::WriteAllText((Join-Path $markerDir "install-path"), $INSTALL_DIR)
-```
-
-> `$CLAUDE_PLUGIN_DATA` is injected by Claude Code when a plugin command runs and
-> points at `~/.claude/plugins/data/<plugin>-<marketplace>/`. Without this marker,
-> the other commands fall back to the default `~/local-usage` and can't find a
-> custom install location (e.g. on another drive) — that's what `/local-usage:update`
-> repairs.
+> Without this marker the other commands fall back to the default `~/local-usage` and
+> can't find a custom install location (e.g. on another drive) — that's what
+> `/local-usage:update` repairs.
 
 ---
 
@@ -123,19 +109,12 @@ at launch time.
 
 ### 5a. Detect which AI tools are installed
 
-Check whether each source's local data directory exists:
-
 ```bash
-# macOS/Linux
-[ -d "$HOME/.claude/projects" ] && echo "claude-code: FOUND" || echo "claude-code: not found"
-[ -d "$HOME/.codex/sessions" ]  && echo "codex: FOUND"       || echo "codex: not found"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/detect-sources.js"
 ```
 
-```powershell
-# Windows (PowerShell)
-if (Test-Path "$env:USERPROFILE\.claude\projects") { "claude-code: FOUND" } else { "claude-code: not found" }
-if (Test-Path "$env:USERPROFILE\.codex\sessions")  { "codex: FOUND" }       else { "codex: not found" }
-```
+Read `DETECTED` (a CSV of the sources whose local data dirs exist) — use it to
+preselect the recommended options in 5b.
 
 ### 5b. Ask which tools to track
 
@@ -162,34 +141,14 @@ Store as `PORT` (a positive integer; fall back to `3002` if invalid).
 
 ### 5d. Write `local-usage.config.json`
 
-Write the file into `INSTALL_DIR`, substituting the actual `ENABLED_SOURCES` and
-`PORT` chosen above (the example below shows both sources on port 3002). The
-`runMode` key is appended in **Step 6a** once the user picks how to run the service —
+Write the config with the install script, substituting the actual `ENABLED_SOURCES`
+(as a comma-separated list) and `PORT` chosen above. It writes UTF-8 without a BOM
+(a BOM breaks node's `JSON.parse` in both `config.ts` and `ecosystem.config.js`). The
+`runMode` key is added in **Step 6a** once the user picks how to run the service —
 `/local-usage:update` later reads it to bring the service back up without re-asking.
 
 ```bash
-# macOS/Linux
-cat > "$INSTALL_DIR/local-usage.config.json" <<EOF
-{
-  "version": 1,
-  "enabledSources": ["claude-code", "codex"],
-  "port": 3002
-}
-EOF
-```
-
-```powershell
-# Windows (PowerShell) — write UTF-8 WITHOUT BOM. Do NOT use `Out-File -Encoding utf8`
-# on Windows PowerShell 5.1: it prepends a BOM that breaks node's JSON.parse (both the
-# app's config.ts and ecosystem.config.js), silently ignoring the config.
-$cfg = @'
-{
-  "version": 1,
-  "enabledSources": ["claude-code", "codex"],
-  "port": 3002
-}
-'@
-[System.IO.File]::WriteAllText("$INSTALL_DIR\local-usage.config.json", $cfg)
+node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=write-config --install-dir="<INSTALL_DIR>" --sources="<ENABLED_SOURCES_CSV>" --port=<PORT>
 ```
 
 ---
@@ -225,26 +184,12 @@ Map the choice to a `RUN_MODE` string: 选项 1 → `pm2-global`, 选项 2 → `
 
 ## Step 6a: Persist the run mode into config
 
-Write `runMode` into `local-usage.config.json` so `/local-usage:start` and
-`/local-usage:update` know how to (re)launch the service without asking again. Merge
-it in — don't rewrite the file — to keep the sources/port from Step 5d:
+Merge `runMode` into the config (keeps the sources/port from Step 5d) so
+`/local-usage:start` and `/local-usage:update` know how to (re)launch without asking
+again — same script, run-mode only:
 
-**macOS/Linux:**
 ```bash
-node -e '
-const fs=require("fs"),p=process.argv[1],m=process.argv[2];
-const raw=fs.readFileSync(p,"utf8"); const c=JSON.parse(raw.charCodeAt(0)===0xFEFF?raw.slice(1):raw); c.runMode=m;
-fs.writeFileSync(p, JSON.stringify(c,null,2)+"\n");
-' "$INSTALL_DIR/local-usage.config.json" "<RUN_MODE>"
-```
-
-**Windows (PowerShell):**
-```powershell
-node -e '
-const fs=require("fs"),p=process.argv[1],m=process.argv[2];
-const raw=fs.readFileSync(p,"utf8"); const c=JSON.parse(raw.charCodeAt(0)===0xFEFF?raw.slice(1):raw); c.runMode=m;
-fs.writeFileSync(p, JSON.stringify(c,null,2)+"\n");
-' "$INSTALL_DIR\local-usage.config.json" "<RUN_MODE>"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=write-config --install-dir="<INSTALL_DIR>" --run-mode=<RUN_MODE>
 ```
 
 ---

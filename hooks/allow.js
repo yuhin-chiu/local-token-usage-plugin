@@ -56,6 +56,11 @@ function segmentAllowed(seg) {
   // to the port and reads `pm2 jlist` — no mutation. Same tight, script-specific match.
   if (/^node\s+["']?[^"']*[\\/]scripts[\\/]status\.js(["']|\s|$)/.test(seg)) return true;
 
+  // The plugin's read-only source detector (init/update config flow). It only stat()s
+  // ~/.claude and ~/.codex — no mutation. NOTE: install.js (which mutates: marker /
+  // config / clone / build) is deliberately NOT here — it always prompts.
+  if (/^node\s+["']?[^"']*[\\/]scripts[\\/]detect-sources\.js(["']|\s|$)/.test(seg)) return true;
+
   // pm2 process manager (global) and via npx (project-level).
   if (seg === "pm2" || seg.startsWith("pm2 ")) return true;
   if (seg.startsWith("npx pm2 ") || seg.startsWith("npx --no pm2 ")) return true;
@@ -97,7 +102,7 @@ function main() {
           hookEventName: "PreToolUse",
           permissionDecision: "allow",
           permissionDecisionReason:
-            "local-usage: auto-approved dashboard command (resolve.js / usage.js / open-browser.js / status.js / pm2 / npx next / read-only git / cd)",
+            "local-usage: auto-approved dashboard command (resolve.js / usage.js / open-browser.js / status.js / detect-sources.js / pm2 / npx next / read-only git / cd)",
         },
       })
     );

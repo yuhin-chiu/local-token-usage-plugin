@@ -107,10 +107,24 @@
 - **[待排查·记 M4]** 本机 `resolve.js` 出 `STATUS=NONE/MARKER=none`，回落默认 `~/local-usage`（不存在），
   真实 install 其实在 `D:/code3/local-usage`——**marker 没写**。会导致所有命令 resolve 到错目录。
   属 init/update 的 marker 写入问题，M4 排查。
-- **下一步**：M4 —— `init` + `update` 的机械部分 → `scripts/install.js`（改盘）。`AskUserQuestion`
-  与「诊断→修复→重试」循环留 command。顺带查上面的 marker 未写问题。
-- **换机续接提示**：拉最新 `main` → 读本文件 → 从 M4 起。真实 install 在 `D:/code3/local-usage`
-  （非默认路径），回归 install/update 时注意 marker。
+- **[M4 决策已定]** ① install.js 细子命令拆法 OK；② 全新 clone 回归用 dry-run+评审（不真下载），
+  clone 子命令要「目标已是有效 install → 跳过」判断，只验此分支；用户晚点删项目自己 init 验全新 clone；
+  ③ M4 分**两个 commit**：M4-1 marker+config（并修 marker），M4-2 clone/pull/build。
+  微调：`detect-sources` 只读，按契约 D1 拆成独立只读脚本 `detect-sources.js`（进白名单），不进改盘的 install.js。
+- **[M4-1 完成·未提交→即将 commit1]** `scripts/install.js`（改盘，**不进白名单**）子命令
+  `write-marker`/`write-config`(upsert)/`sync-config`(diff `local-usage.config.example.json` 补缺键) +
+  `scripts/detect-sources.js`（只读，进白名单）。init.md/update.md 的 marker/detect/写config/补键/runMode
+  段全部变薄调脚本；clone/build/起服务段**仍是旧双写，留 M4-2**。
+  - **marker 问题已修**：`install.js write-marker --install-dir=D:/code3/local-usage` → resolve.js 从
+    `NONE`(错默认路径) 变 `FOUND/canonical/D:/code3/local-usage`。本机所有命令现在定位正确。
+  - **回归**：detect-sources 真跑 ✅；write-config 新建/upsert（无 BOM、trailing NL、保留未传键）✅；
+    sync-config 补缺键/`no-config` ✅；参数校验退出码 2 ✅；白名单放行 detect-sources、拦 install.js ✅。
+- **下一步 M4-2（commit2）**：install.js 加 `clone`/`pull`/`build` 子命令；clone 先判目标是否已有效
+  install（是则 `SKIPPED=exists` 不重下）；network-optional pull（fetch→仅落后 ff-only→`PULLED`）；
+  build 按需（PULLED 或产物缺失）。init.md S3/S4、update.md S3/S5 变薄。起服务复用 service.js（已有）。
+  回归：pull/build 在真实 `D:/code3/local-usage` 真跑；clone 的 skip 分支验（已存在→skip）；全新 clone
+  dry-run+评审（用户自行删后 init 验）。Mac 遗留。
+- **换机续接提示**：拉最新 `main` → 读本文件 → 从 M4-2 起。真实 install 在 `D:/code3/local-usage`。
 
 ## M2 规划（已设计，待用户定 ①② 后执行）
 

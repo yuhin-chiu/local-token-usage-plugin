@@ -9,7 +9,7 @@
 
 | ID | 名称 | 优先级 | 状态 |
 |----|------|--------|------|
-| `commands-to-scripts` | 命令脚本化（Claude 侧） | 中 | 🚧 M3 完成（service.js 起停，真实 pm2 端到端过），下一步 M4 init/update |
+| `commands-to-scripts` | 命令脚本化（Claude 侧） | 中 | 🚧 M4-1 完成（install.js marker/config + 修好 marker），下一步 M4-2 clone/build |
 
 ## 🔲 待办（backlog.md）
 

@@ -67,21 +67,12 @@ Act on `STATUS` (use `INSTALL_DIR` / `PORT` from the output below):
 
 ### Step 1a: Persist the resolved path
 
-Write the resolved `<INSTALL_DIR>` back to the marker. Use the canonical data dir when
-`$CLAUDE_PLUGIN_DATA` isn't injected, so the marker still lands somewhere the resolver
-scans.
+Write the resolved `<INSTALL_DIR>` back to the marker (self-heals a missing/stale
+marker) — one call, all platforms; it falls back to the canonical data dir when
+`$CLAUDE_PLUGIN_DATA` isn't injected:
 
 ```bash
-# macOS/Linux
-MARKER_DIR="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/local-usage-local-usage}"
-mkdir -p "$MARKER_DIR"
-printf '%s' "<INSTALL_DIR>" > "$MARKER_DIR/install-path"
-```
-```powershell
-# Windows
-$markerDir = if ($env:CLAUDE_PLUGIN_DATA) { $env:CLAUDE_PLUGIN_DATA } else { Join-Path $env:USERPROFILE ".claude\plugins\data\local-usage-local-usage" }
-New-Item -ItemType Directory -Force $markerDir | Out-Null
-[System.IO.File]::WriteAllText((Join-Path $markerDir "install-path"), "<INSTALL_DIR>")
+node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=write-marker --install-dir="<INSTALL_DIR>"
 ```
 
 ---
@@ -142,7 +133,8 @@ The install dir holds `local-usage.config.json` (`enabledSources`, `port`,
 ### 4a. If the config file is missing entirely
 
 Do the full first-time config flow (same as `/local-usage:init`):
-1. Detect installed tools — check `~/.claude/projects` and `~/.codex/sessions`.
+1. Detect installed tools — `node "${CLAUDE_PLUGIN_ROOT}/scripts/detect-sources.js"`,
+   read `DETECTED`.
 2. **AskUserQuestion (multiSelect)** which sources to track (recommend detected
    ones; fall back to `["claude-code"]` if none picked) → `ENABLED_SOURCES`.
 3. **AskUserQuestion** for the port (default `3002`) → `PORT`.
@@ -151,50 +143,31 @@ Do the full first-time config flow (same as `/local-usage:init`):
 
 ### 4b. If the config file exists — top up missing keys (silent tier)
 
-New plugin/app versions may add config keys with safe defaults. Merge any key that
-exists in the shipped template `local-usage.config.example.json` but is absent from
-the user's config, **keeping the user's existing values**. (The template mirrors the
-app's `DEFAULT_CONFIG`; pulling in Step 3 brought the current version's template.)
+New plugin/app versions may add config keys with safe defaults. The install script
+merges any key present in the shipped template `local-usage.config.example.json` but
+absent from the user's config, **keeping the user's existing values** (one call, all
+platforms):
 
-**macOS/Linux:**
 ```bash
-node -e '
-const fs=require("fs"),p=require("path");
-const rd=f=>{const s=fs.readFileSync(f,"utf8");return s.charCodeAt(0)===0xFEFF?s.slice(1):s;}; // strip UTF-8 BOM
-const dir=process.argv[1];
-const cfgPath=p.join(dir,"local-usage.config.json");
-const tplPath=p.join(dir,"local-usage.config.example.json");
-const cfg=JSON.parse(rd(cfgPath));
-let changed=false;
-try{
-  const tpl=JSON.parse(rd(tplPath));
-  for(const k of Object.keys(tpl)){ if(!(k in cfg)){ cfg[k]=tpl[k]; changed=true; } }
-}catch{}
-if(changed){ fs.writeFileSync(cfgPath, JSON.stringify(cfg,null,2)+"\n"); console.log("TOPPED_UP:"+JSON.stringify(cfg)); }
-else console.log("CONFIG_COMPLETE");
-' "<INSTALL_DIR>"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=sync-config --install-dir="<INSTALL_DIR>"
 ```
 
-**Windows (PowerShell):** run the same `node -e` with the script (single-quoted) and
-`"<INSTALL_DIR>"` as the argument.
+Read its output:
+- `SYNCED=complete` / `SYNCED=topped-up` → config is present and now current.
+- `SYNCED=no-config` → the file is missing entirely; go to **4a** (full first-time flow).
+- `RUN_MODE=<value>` → the current run mode (empty if unset) — used by **4c**.
 
-> This is how "is the config complete?" is judged — by diffing against the shipped
-> template, **never** by a hardcoded key list here. When the dashboard adds a config
-> key it also updates `DEFAULT_CONFIG` + `local-usage.config.example.json`, so this
-> step picks it up automatically. Use the config's `version` as a cheap short-circuit
-> if it already equals the template's version.
+> Completeness is judged by diffing against the shipped template, **never** a hardcoded
+> key list. When the dashboard adds a config key it also updates `DEFAULT_CONFIG` +
+> `local-usage.config.example.json`, so this step picks it up automatically after the
+> Step 3 pull.
 
 ### 4c. Resolve the run mode (interactive tier)
 
-`runMode` has no safe silent default, so it can't be filled from the template. Read
-it from the config; if absent, ask the user once and write it back.
+`runMode` has no safe silent default, so it can't be filled from the template. Use the
+`RUN_MODE` printed by the `sync-config` call in 4b:
 
-```bash
-# read runMode (prints empty if missing)
-node -e 'try{const s=require("fs").readFileSync(process.argv[1],"utf8");const t=s.charCodeAt(0)===0xFEFF?s.slice(1):s;process.stdout.write(String(JSON.parse(t).runMode||""))}catch{}' "<INSTALL_DIR>/local-usage.config.json"
-```
-
-- If it prints one of `pm2-global` / `pm2-project` / `none` → use it as `RUN_MODE`.
+- If it is one of `pm2-global` / `pm2-project` / `none` → use it as `RUN_MODE`.
 - If empty → **AskUserQuestion**: "How should the dashboard service run?"
   - **全局 PM2**（推荐）→ `pm2-global`
   - **项目级 PM2** → `pm2-project`
@@ -204,32 +177,12 @@ node -e 'try{const s=require("fs").readFileSync(process.argv[1],"utf8");const t=
 
 ### 4d. Write the config
 
-Write `local-usage.config.json` into `INSTALL_DIR` with the resolved values. Keep any
-existing keys not managed here.
+Write the resolved values with the install script (upsert — UTF-8, no BOM, keeps any
+keys not passed). In the **4a** full-flow pass all three; in the **4b/4c** path pass
+only what changed (typically just `--run-mode` when 4c had to ask):
 
 ```bash
-# macOS/Linux (adjust the values to what was resolved above)
-cat > "<INSTALL_DIR>/local-usage.config.json" <<EOF
-{
-  "version": 1,
-  "enabledSources": ["claude-code", "codex"],
-  "port": 3002,
-  "runMode": "pm2-global"
-}
-EOF
-```
-```powershell
-# Windows — UTF-8 without BOM (Out-File -Encoding utf8 on PS 5.1 adds a BOM that
-# breaks node's JSON.parse). Use .NET WriteAllText.
-$cfg = @'
-{
-  "version": 1,
-  "enabledSources": ["claude-code", "codex"],
-  "port": 3002,
-  "runMode": "pm2-global"
-}
-'@
-[System.IO.File]::WriteAllText("<INSTALL_DIR>\local-usage.config.json", $cfg)
+node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=write-config --install-dir="<INSTALL_DIR>" --sources="<ENABLED_SOURCES_CSV>" --port=<PORT> --run-mode=<RUN_MODE>
 ```
 
 > If you only topped up (4b) / added `runMode` (4c) to an existing file, prefer
