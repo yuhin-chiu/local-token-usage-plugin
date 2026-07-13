@@ -18,65 +18,23 @@ the project-PM2 fallback below already handles a missing `INSTALL_DIR`.
 
 ---
 
-## Step 1: Detect running mode
+## Step 1: Stop the service
+
+`service.js` auto-detects the run mode and stops accordingly — one call, all
+platforms. Global/project PM2 stop the `local-usage` process by name; no-PM2 (and
+the fallback when the install dir is missing/moved) kills whatever is bound to the
+port. It then polls the port to confirm:
 
 ```bash
-# Check global PM2
-pm2 --version
+node "${CLAUDE_PLUGIN_ROOT}/scripts/service.js" --action=stop --install-dir="<INSTALL_DIR>" --port=<PORT>
 ```
 
-- If global `pm2` available → **global PM2 mode**
-- If not, check project: `cd "<INSTALL_DIR>" && npx --no pm2 --version`
-- If neither → **no-PM2 mode**
+Read `RESULT` / `PORT_LISTENING` from its output.
 
----
+- **`RESULT=ok`** (port no longer listening) →
+  > "✓ Dashboard stopped."
+- **`RESULT=fail`** (still listening) → something is still holding the port. Suggest
+  re-checking with `/local-usage:status`, or that the user stop the process manually.
 
-## Step 2: Stop the service
-
-### 全局 PM2 模式
-
-```bash
-pm2 stop local-usage
-pm2 list
-```
-
-If status is `stopped`:
-> "✓ Dashboard stopped."
-
-If process not found:
-> "No running local-usage process found — it may already be stopped."
-
----
-
-### 项目级 PM2 模式
-
-Project PM2 lives inside `INSTALL_DIR`, so it needs the directory. If `INSTALL_DIR`
-is missing or moved (`[ -d "$INSTALL_DIR" ]` is false), the `cd`/`npx pm2` below can't
-run — **fall back to the no-PM2 method** (kill by port) instead; the service is bound
-to `<PORT>` either way.
-
-```bash
-cd "<INSTALL_DIR>"
-npx pm2 stop local-usage
-npx pm2 list
-```
-
-If status is `stopped`:
-> "✓ Dashboard stopped."
-
----
-
-### 无 PM2 模式
-
-Find and kill the process on the configured port:
-
-**macOS/Linux:**
-```bash
-kill $(lsof -ti :<PORT>)
-```
-
-**Windows (PowerShell):**
-```powershell
-$p = Get-NetTCPConnection -LocalPort <PORT> -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($p) { Stop-Process -Id $p.OwningProcess -Force; "✓ Dashboard stopped." } else { "No process found on port <PORT>." }
-```
+> Note: stopping only needs the `<PORT>` — a `STALE` install can still be stopped,
+> since the port kill / npx-fallback doesn't depend on a valid `INSTALL_DIR`.

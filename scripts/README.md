@@ -59,5 +59,5 @@
 |------|------|------|------|
 | `resolve.js` | 只读 | 定位安装目录 / 端口 / 有效性 / Node 版本，`KEY=VALUE` 输出 | 已有 |
 | `usage.js` | 只读 | 走 `~/.claude` + `~/.codex` 会话算 token/成本；text 默认、`--format=json` 可选 | ✅ M1 |
-| `service.js` | 改盘 | pm2 模式探测 + 起/停 + 端口校验 | M3 规划 |
+| `service.js` | 改盘 | pm2 模式探测 + 起/停（三模式）+ 端口轮询校验；`--dry-run` | ✅ M3 |
 | `install.js` | 改盘 | clone / npm build / 拉起服务 / 写 marker / 配置 top-up 的确定性部分 | M4 规划 |

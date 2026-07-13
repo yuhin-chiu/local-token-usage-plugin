@@ -51,7 +51,7 @@
 | M0 | 定脚本契约 → `scripts/README.md`（CLI 规范：非交互/参数/输出协议/退出码/data-dir 入参） | ✅ |
 | M1 | 试点 `query` → `scripts/usage.js`；`query.md` 变薄；输出逐字节回归 | ✅ |
 | M2 | 只读检测类 `open` + `status` 进脚本；更新 `hooks/allow.js` 白名单；4 状态回归 | ✅ |
-| M3 | 启停类 `start` + `stop` → `scripts/service.js`（改盘，不进白名单）；3 运行模式回归 | 🔲 |
+| M3 | 启停类 `start` + `stop` → `scripts/service.js`（改盘，不进白名单）；3 运行模式回归 | ✅ |
 | M4 | `init` + `update` 的**机械部分** → `scripts/install.js`；`AskUserQuestion` 与诊断重试循环留 command；2 主路径回归 | 🔲 |
 
 顺序理由：先证明模式（M1 最独立、零 CC 依赖），再铺开；M4 最重、最易破坏交互，放最后。
@@ -90,12 +90,27 @@
   试连 127.0.0.1，零 spawn) / `PM2_MODE`(global/npx/none，一次 `pm2 jlist` 回落 `npx pm2 jlist`) /
   `PM2_STATE`(online/stopped/absent，解析 jlist)）、`status.md` Step 1/2 改调脚本、`allow.js` 加
   status.js 白名单。回归：端口 yes/no 用临时监听切换 ✅、`no/global/absent` 真实态 ✅、缺参退出码 2 ✅；
-  `online/stopped` 需真 pm2 进程才能造（会污染机器 pm2，按简化不造）靠逻辑评审，Mac 实测列遗留。
-  **M2 status 部分未提交**。
-- **下一步**：M3 —— 启停类 `start` + `stop` → `scripts/service.js`（**改盘，不进白名单**）。
-  service.js 可复用 status.js 的 pm2 探测思路选模式；起停后仍靠 status.js 的端口试连确认。
-- **换机续接提示**：拉最新 `main` → 读本文件 → 从 M3 起。start.md 有三种模式（全局 pm2 /
-  项目 npx pm2 / 无 pm2 nohup），是 M3 的抽取输入。
+  `online/stopped` 用**自清理占位进程**实测（pm2 start 同名 dummy → online → stop → stopped →
+  delete → 恢复 absent，不碰真实 install）✅✅✅。四态全通过。Mac 实测列遗留。
+  status.js 代码已提交（commit `4935273`）；本条 online/stopped 实测为验证补记，无代码改动。
+- **[M3 完成]** `scripts/service.js`（`--action=start|stop --install-dir --port [--mode] [--dry-run]`）：
+  自动探测三模式（global pm2 → npx pm2 → none）、按模式起/停、起后轮询端口返回
+  `PORT_LISTENING/PM2_STATE/RESULT`。no-PM2 用 Node `spawn(detached).unref()` 统一三平台（替代
+  nohup/Start-Process）；kill-by-port 按 `process.platform` 分支（lsof / powershell Stop-Process），
+  平台差异收敛脚本内。`start.md`/`stop.md` 三模式+三平台块 → 各一行调 service.js（start 顺带复用
+  open-browser.js）；诊断/`STATUS` gate/`/update`·`/init` 建议留 command。**service.js 改盘、不进白名单**。
+  - **回归**：dry-run 验三模式/三平台命令选择 ✅；**真实全局 pm2 起停端到端**（用真实 install
+    `D:/code3/local-usage`：start→yes/online/ok、stop→no/stopped/ok、清理恢复 absent）✅。
+    npx/no-PM2/kill-by-port 本机 config=pm2-global 用不到，dry-run + 评审；Mac 遗留。
+  - **回归抓到并修的 bug**：`waitForPort()` 原返回「是否达标」被误当「端口是否在监听」——start 凑巧对、
+    stop 反了（停成功却报 fail）。改为返回**实际 listening 状态**，重测 stop 通过。
+- **[待排查·记 M4]** 本机 `resolve.js` 出 `STATUS=NONE/MARKER=none`，回落默认 `~/local-usage`（不存在），
+  真实 install 其实在 `D:/code3/local-usage`——**marker 没写**。会导致所有命令 resolve 到错目录。
+  属 init/update 的 marker 写入问题，M4 排查。
+- **下一步**：M4 —— `init` + `update` 的机械部分 → `scripts/install.js`（改盘）。`AskUserQuestion`
+  与「诊断→修复→重试」循环留 command。顺带查上面的 marker 未写问题。
+- **换机续接提示**：拉最新 `main` → 读本文件 → 从 M4 起。真实 install 在 `D:/code3/local-usage`
+  （非默认路径），回归 install/update 时注意 marker。
 
 ## M2 规划（已设计，待用户定 ①② 后执行）
 

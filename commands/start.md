@@ -40,118 +40,47 @@ The resolver already validated the install, so just act on `STATUS`:
 
 ---
 
-## Step 1: Detect running mode
+## Step 1: Start the service
 
-Check which PM2 is available:
+`service.js` auto-detects the run mode (global pm2 → project npx pm2 → no-PM2) and
+starts accordingly — one call, all platforms. It starts via the install's
+`ecosystem.config.js` (which registers + starts and is a no-op if already online),
+then polls the port and reports the result:
 
 ```bash
-# Check global PM2
-pm2 --version
-
-# Check project-level PM2 (run from the resolved install dir)
-cd "<INSTALL_DIR>" && npx --no pm2 --version 2>/dev/null
+node "${CLAUDE_PLUGIN_ROOT}/scripts/service.js" --action=start --install-dir="<INSTALL_DIR>" --port=<PORT>
 ```
 
-- If global `pm2` is available → use **global PM2 mode**
-- If only project-level (`npx pm2`) → use **project PM2 mode**
-- If neither → use **no-PM2 mode**
+Read `RESULT` / `MODE` / `PM2_STATE` / `PORT_LISTENING` from its output.
 
----
+- **`RESULT=ok`** → started. Report and continue to Step 2:
+  > "✓ Dashboard started at http://localhost:<PORT>/dashboard"
+- **`RESULT=fail`** → it didn't come up. Diagnose (Step 1a).
 
-## Step 2: Start the service
+### Step 1a: If start failed
 
-### 全局 PM2 模式
-
-Start via the install dir's `ecosystem.config.js` — this **registers and starts**
-the process regardless of whether PM2 already knows it, reads the port from
-`local-usage.config.json`, and is a no-op if it's already online:
+Pull recent logs to see why (use the reported `MODE`):
 
 ```bash
-pm2 start "<INSTALL_DIR>/ecosystem.config.js"
-pm2 list
-```
-
-> ⚠️ Do **not** use `pm2 start local-usage` (by name) for the first start — if the
-> process was never registered, PM2 treats `local-usage` as a script path in the
-> current directory and fails. Starting from the ecosystem file avoids this.
-
-If `local-usage` is `online`:
-> "✓ Dashboard started at http://localhost:<PORT>/dashboard"
-
-If it fails:
-```bash
+# MODE=global
 pm2 logs local-usage --lines 20 --nostream
+# MODE=npx
+cd "<INSTALL_DIR>" && npx pm2 logs local-usage --lines 20 --nostream
 ```
-Suggest running `/local-usage:update` to diagnose and repair the install (it fixes a
-missing config, stale deps/build, or an unregistered service, then brings it back up).
+
+Then suggest running `/local-usage:update` to diagnose and repair the install (it fixes
+a missing config, stale deps/build, or an unregistered service, then brings it back up).
 Only fall back to `/local-usage:init` if there's no install directory at all.
 
 ---
 
-### 项目级 PM2 模式
+## Step 2: Open in browser
+
+After `RESULT=ok`, open the dashboard automatically (one call, all platforms):
 
 ```bash
-cd "<INSTALL_DIR>"
-npx pm2 start ecosystem.config.js
-npx pm2 list
+node "${CLAUDE_PLUGIN_ROOT}/scripts/open-browser.js" --port=<PORT>
 ```
 
-If `local-usage` is `online`:
-> "✓ Dashboard started at http://localhost:<PORT>/dashboard"
-
-If it fails:
-```bash
-cd "<INSTALL_DIR>" && npx pm2 logs local-usage --lines 20 --nostream
-```
-
----
-
-### 无 PM2 模式
-
-**macOS/Linux:**
-```bash
-cd "<INSTALL_DIR>"
-nohup npx next start -p <PORT> > "<INSTALL_DIR>/local-usage.log" 2>&1 &
-echo "Started PID: $!"
-```
-
-**Windows (PowerShell):**
-```powershell
-Start-Process -NoNewWindow -FilePath "npx" -ArgumentList "next","start","-p","<PORT>" -WorkingDirectory "<INSTALL_DIR>"
-```
-
-Then verify the port is listening:
-```bash
-# macOS/Linux
-lsof -i :<PORT> | grep LISTEN
-
-# Windows
-Get-NetTCPConnection -LocalPort <PORT> -State Listen -ErrorAction SilentlyContinue
-```
-
-If port is live:
-> "✓ Dashboard started at http://localhost:<PORT>/dashboard"
-
----
-
-## Step 3: Open in browser
-
-After confirming the service is running, open the dashboard automatically:
-
-**macOS:**
-```bash
-open http://localhost:<PORT>/dashboard
-```
-
-**Linux:**
-```bash
-xdg-open http://localhost:<PORT>/dashboard
-```
-
-**Windows (PowerShell):**
-```powershell
-Start-Process "http://localhost:<PORT>/dashboard"
-```
-
-Tell the user:
-> "Opening http://localhost:<PORT>/dashboard in your browser."
+Read `URL` from its output and tell the user:
+> "Opening <URL> in your browser."
