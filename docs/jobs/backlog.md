@@ -35,23 +35,5 @@
 
 ---
 
-## [commands-to-scripts] 命令脚本化
+<!-- [commands-to-scripts] 已于 2026-07-13 提升到 active/commands-to-scripts.md -->
 
-**背景**：命令是 markdown（prompt 式），每个 shell 片段都由 Claude 当一次 Bash 调用
-执行——步骤多、每步可能弹框、跨平台还要 bash + PowerShell 各写一套。`resolve.js`
-已验证「把重复逻辑收敛成一个脚本」既能去重又能被 hook 白名单一次放行、少弹框。
-
-**目标**：把几个 command 里的 shell 逻辑抽成脚本，命令只负责编排（调脚本 + 读输出 +
-必要的 AskUserQuestion），减少弹框、去掉双平台重复块、逻辑集中好维护。
-
-**待定（提升到 active 时定）**：
-- 哪些命令优先脚本化（候选：`start` / `stop` / `status` / `open` 的启停/检测逻辑）。
-- 脚本边界：纯定位/检测（只读，可 hook 放行）vs 会改盘的动作（pm2 起停、写 marker、
-  git 拉取——这些要不要进脚本、进了如何对待白名单与提示）。
-- 脚本语言统一 Node（已确立 Node 是保证依赖，Python 不是）。
-- 输出协议沿用 `resolve.js` 的 `KEY=VALUE` 风格。
-
-**验收**：目标命令的 shell 逻辑集中到 `scripts/`，命令 markdown 变薄；跨平台单一实现；
-只读脚本走 hook 白名单不弹框；行为与现状一致（回归验证）。
-
-**影响范围**：`scripts/`（新增若干）、`commands/*.md`、可能 `hooks/allow.js`（白名单）。

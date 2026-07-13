@@ -9,14 +9,13 @@
 
 | ID | 名称 | 优先级 | 状态 |
 |----|------|--------|------|
-| —  | —    | —      | 暂无 |
+| `commands-to-scripts` | 命令脚本化（Claude 侧） | 中 | 🚧 M1 完成（usage.js + query.md 变薄，回归通过），下一步 M2 open/status |
 
 ## 🔲 待办（backlog.md）
 
 | ID | 名称 | 优先级 | 一句话 |
 |----|------|--------|--------|
 | `version-lockstep` | 插件版本 ↔ 看板 tag 锁定，治反复 pull | 中 | 用插件版本当「源码该不该更新」的开关，checkout 对应 tag |
-| `commands-to-scripts` | 命令脚本化 | 中 | 把几个 command 的 shell 逻辑抽成脚本，命令只做编排 |
 
 ## ✅ 已归档（archive/）
 

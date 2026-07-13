@@ -43,6 +43,10 @@ function segmentAllowed(seg) {
   // in general, so unrelated `node <anything>` still falls through to a prompt.
   if (/^node\s+["']?[^"']*[\\/]scripts[\\/]resolve\.js(["']|\s|$)/.test(seg)) return true;
 
+  // The plugin's read-only usage reporter (the `query` command). Same tight match
+  // as resolve.js — only THIS script, never `node <anything>` in general.
+  if (/^node\s+["']?[^"']*[\\/]scripts[\\/]usage\.js(["']|\s|$)/.test(seg)) return true;
+
   // pm2 process manager (global) and via npx (project-level).
   if (seg === "pm2" || seg.startsWith("pm2 ")) return true;
   if (seg.startsWith("npx pm2 ") || seg.startsWith("npx --no pm2 ")) return true;
@@ -84,7 +88,7 @@ function main() {
           hookEventName: "PreToolUse",
           permissionDecision: "allow",
           permissionDecisionReason:
-            "local-usage: auto-approved dashboard command (resolve.js / pm2 / npx next / read-only git / cd)",
+            "local-usage: auto-approved dashboard command (resolve.js / usage.js / pm2 / npx next / read-only git / cd)",
         },
       })
     );
