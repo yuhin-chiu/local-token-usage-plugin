@@ -50,7 +50,7 @@
 |---|------|------|
 | M0 | 定脚本契约 → `scripts/README.md`（CLI 规范：非交互/参数/输出协议/退出码/data-dir 入参） | ✅ |
 | M1 | 试点 `query` → `scripts/usage.js`；`query.md` 变薄；输出逐字节回归 | ✅ |
-| M2 | 只读检测类 `open` + `status` 进脚本；更新 `hooks/allow.js` 白名单；4 状态回归 | 🔲 |
+| M2 | 只读检测类 `open` + `status` 进脚本；更新 `hooks/allow.js` 白名单；4 状态回归 | 🔲 规划完成，待①② |
 | M3 | 启停类 `start` + `stop` → `scripts/service.js`（改盘，不进白名单）；3 运行模式回归 | 🔲 |
 | M4 | `init` + `update` 的**机械部分** → `scripts/install.js`；`AskUserQuestion` 与诊断重试循环留 command；2 主路径回归 | 🔲 |
 
@@ -77,9 +77,34 @@
 
 ## 续接锚点
 
-- **当前进度**：M1 完成 ✅。`scripts/usage.js`（text 默认 + `--format=json`）抽出，`query.md`
-  变薄为「日期映射 + 调脚本」，`hooks/allow.js` 加了 usage.js 只读白名单；冻结快照回归
-  today/7d/30d 三区间逐字节一致（PASS）。**未提交**。
-- **下一步**：M2 —— `open` + `status` 的只读定位/检测逻辑进脚本，更新白名单；4 状态
-  （running / stopped / 装了没起 / 没装）回归。
-- **等待**：用户决定「先提交 M0+M1 再进 M2」还是「继续攒到一起提交」。
+- **当前进度**：M0+M1 完成并已提交（commit `11d38db`）。M1 产物：`scripts/usage.js`
+  （text 默认 + `--format=json`）、`query.md` 变薄、`hooks/allow.js` 加 usage.js 白名单；
+  冻结快照回归 today/7d/30d 逐字节一致（PASS）。
+- **下一步**：M2 —— `open` + `status` 只读脚本化。方案已设计（见下「M2 规划」），
+  **待用户拍板 ①② 后开写**。
+- **换机续接提示**：拉最新 `main` → 读本文件 →「M2 规划」→ 等用户回答 ①②，即可动手。
+  第一步动作是写 `scripts/open-browser.js` + `scripts/status.js`。
+
+## M2 规划（已设计，待用户定 ①② 后执行）
+
+**抽取目标**：
+- `scripts/open-browser.js`：按 `process.platform` 选 `open`/`xdg-open`/`start`，替代
+  `open.md` Step 1 的三平台块；支持 `--dry-run` 只打印将执行的命令（备回归）。
+- `scripts/status.js`：入参 `--port --install-dir`，输出 `KEY=VALUE`：
+  - `PORT_LISTENING=yes|no` —— 用 Node `net` 试连，**跨平台零 spawn**，替代 lsof / Get-NetTCPConnection 双写。
+  - `PM2_MODE=global|npx|none`、`PM2_STATE=online|stopped|absent` —— 只读 `pm2 list` 探测。
+- `commands/open.md`：Step 1 三平台块 → 一行 `node "${CLAUDE_PLUGIN_ROOT}/scripts/open-browser.js" --port=<PORT>`。
+- `commands/status.md`：Step 1/2 → 调 `status.js` 读 KEY；agent 只做 `INSTALL_OK/MISSING`
+  判断 + 文案组织（判断/措辞按铁律留 command 层）。
+- `hooks/allow.js`：加 `status.js`（只读）白名单；`open-browser.js` 见 ①。
+
+**待用户拍板**：
+- **① `open-browser.js` 是否进白名单** —— 它打开浏览器（无害 side-effect，非纯只读）。
+  现状 `/open` 那步本就弹框（open/Start-Process 不在白名单）。**默认建议：进**（`/open`
+  不再弹框，用户主动敲即是要开）；备选：维持弹框、只放 `status.js`。
+- **② 回归策略** —— M2 无法纯数据对拍。拟：`open-browser` 用 `--dry-run` 验平台选择
+  正确 + Windows 真开一次人工确认；`status.js` 在真实状态跑、对齐旧 `status.md` 手动判断，
+  4 状态（running/stopped/装了没起/没装）能造则造、其余靠逻辑评审；Mac 实测列遗留。
+
+**边界（已定）**：pm2 **只读检测** M2 做进 `status.js`；pm2 **起停**（改盘）留 M3 的
+`service.js`，M3 复用 M2 的探测逻辑，不提前把起停拉进 M2。
