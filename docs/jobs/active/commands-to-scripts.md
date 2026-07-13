@@ -104,9 +104,12 @@
     npx/no-PM2/kill-by-port 本机 config=pm2-global 用不到，dry-run + 评审；Mac 遗留。
   - **回归抓到并修的 bug**：`waitForPort()` 原返回「是否达标」被误当「端口是否在监听」——start 凑巧对、
     stop 反了（停成功却报 fail）。改为返回**实际 listening 状态**，重测 stop 通过。
-- **[待排查·记 M4]** 本机 `resolve.js` 出 `STATUS=NONE/MARKER=none`，回落默认 `~/local-usage`（不存在），
-  真实 install 其实在 `D:/code3/local-usage`——**marker 没写**。会导致所有命令 resolve 到错目录。
-  属 init/update 的 marker 写入问题，M4 排查。
+- **[已澄清·非 bug]** 之前误判"本机 marker 没写"——实为**bash 里没注入 `$CLAUDE_PLUGIN_DATA`** 的假象。
+  真实 marker 一直在 `~/.claude/plugins/data/local-usage-ai-usage/install-path`（= `D:\code3\local-usage`，
+  Jul 1 就写好）；真实插件运行有 env、定位正常。根因是**插件曾 `ai-usage`→`local-usage` 重命名**，老用户
+  注册 slug 仍是 `ai-usage`，而 `resolve.js`/`install.js` 的 fallback **硬编码** `local-usage-local-usage`，
+  env 缺失时对不上。**已修**：fallback 改为**扫描 `~/.claude/plugins/data/local-usage-*`**，兼容
+  ai-usage/local-usage/未来任意 slug（反转 1.4.2 的"不兼容旧 slug"决策——理由：老用户真实存在，即本机）。
 - **[M4 决策已定]** ① install.js 细子命令拆法 OK；② 全新 clone 回归用 dry-run+评审（不真下载），
   clone 子命令要「目标已是有效 install → 跳过」判断，只验此分支；用户晚点删项目自己 init 验全新 clone；
   ③ M4 分**两个 commit**：M4-1 marker+config（并修 marker），M4-2 clone/pull/build。

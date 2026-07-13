@@ -74,10 +74,21 @@ const candidates = [];
 if (process.env.CLAUDE_PLUGIN_DATA) {
   candidates.push([path.join(process.env.CLAUDE_PLUGIN_DATA, "install-path"), "env"]);
 }
-candidates.push([
-  path.join(os.homedir(), ".claude", "plugins", "data", "local-usage-local-usage", "install-path"),
-  "canonical",
-]);
+// Fallback when the env var isn't injected (standalone runs, some hosts): scan every
+// local-usage-* data dir instead of guessing one hardcoded name. The marketplace slug
+// varies — this plugin was renamed ai-usage → local-usage, so older installs persist
+// their marker under `local-usage-ai-usage` and newer ones under
+// `local-usage-local-usage`. Scanning covers both (and any future rename).
+const dataRoot = path.join(os.homedir(), ".claude", "plugins", "data");
+try {
+  for (const d of fs.readdirSync(dataRoot).sort()) {
+    if (d.startsWith("local-usage-")) {
+      candidates.push([path.join(dataRoot, d, "install-path"), "canonical"]);
+    }
+  }
+} catch {
+  /* no data dir → env (if any) is the only candidate */
+}
 
 let installDir = "";
 let marker = "none";

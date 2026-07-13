@@ -8,8 +8,8 @@
  * Sub-commands (--action):
  *   write-marker  --install-dir=<dir> [--data-dir=<dir>]
  *       Persist the install path so resolve.js finds it. data-dir precedence:
- *       --data-dir → $CLAUDE_PLUGIN_DATA → canonical ~/.claude/plugins/data/
- *       local-usage-local-usage (the same fallback resolve.js reads — §5/D3).
+ *       --data-dir → $CLAUDE_PLUGIN_DATA → an existing local-usage-* data dir
+ *       (mirrors resolve.js's scan; handles the ai-usage → local-usage rename — §5/D3).
  *
  *   write-config  --install-dir=<dir> [--sources=a,b] [--port=n] [--run-mode=m]
  *       Upsert local-usage.config.json: reads any existing file, sets ONLY the keys
@@ -77,12 +77,37 @@ function writeJson(file, obj) {
   fs.writeFileSync(file, JSON.stringify(obj, null, 2) + "\n");
 }
 
-/** Marker directory: --data-dir → $CLAUDE_PLUGIN_DATA → canonical (matches resolve.js). */
+/**
+ * Marker directory: --data-dir → $CLAUDE_PLUGIN_DATA → an existing local-usage-* data
+ * dir → default. The fallback mirrors resolve.js's scan (the plugin was renamed
+ * ai-usage → local-usage): when no env var is injected, reuse whichever
+ * local-usage-* dir already holds a marker (or the first one) so the marker lands
+ * where resolve.js will look — avoiding a stray, never-read `local-usage-local-usage`.
+ */
 function markerDir() {
   const explicit = argVal("data-dir");
   if (explicit) return explicit;
   if (process.env.CLAUDE_PLUGIN_DATA) return process.env.CLAUDE_PLUGIN_DATA;
-  return path.join(os.homedir(), ".claude", "plugins", "data", "local-usage-local-usage");
+
+  const dataRoot = path.join(os.homedir(), ".claude", "plugins", "data");
+  try {
+    const dirs = fs
+      .readdirSync(dataRoot)
+      .filter((d) => d.startsWith("local-usage-"))
+      .sort();
+    const withMarker = dirs.find((d) => {
+      try {
+        return fs.statSync(path.join(dataRoot, d, "install-path")).isFile();
+      } catch {
+        return false;
+      }
+    });
+    const pick = withMarker || dirs[0];
+    if (pick) return path.join(dataRoot, pick);
+  } catch {
+    /* no data dir → fall through to default */
+  }
+  return path.join(dataRoot, "local-usage-local-usage");
 }
 
 function writeMarker() {
