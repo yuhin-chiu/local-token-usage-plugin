@@ -9,7 +9,7 @@
 
 | ID | 名称 | 优先级 | 状态 |
 |----|------|--------|------|
-| `commands-to-scripts` | 命令脚本化（Claude 侧） | 中 | 🚧 M1 完成（usage.js + query.md 变薄，回归通过），下一步 M2 open/status |
+| `commands-to-scripts` | 命令脚本化（Claude 侧） | 中 | 🚧 M2 进行中：open 完成（open-browser.js + 白名单），剩 status.js |
 
 ## 🔲 待办（backlog.md）
 

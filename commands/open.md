@@ -15,25 +15,17 @@ Read `PORT` from its output and use `<PORT>` below.
 
 ---
 
-## Step 1: Detect OS and open
+## Step 1: Open in the default browser
 
-**macOS:**
+One call, all platforms — the script picks `open` / `xdg-open` / `start` from the
+OS and launches the dashboard URL:
+
 ```bash
-open http://localhost:<PORT>/dashboard
+node "${CLAUDE_PLUGIN_ROOT}/scripts/open-browser.js" --port=<PORT>
 ```
 
-**Linux:**
-```bash
-xdg-open http://localhost:<PORT>/dashboard
-```
-
-**Windows (PowerShell):**
-```powershell
-Start-Process "http://localhost:<PORT>/dashboard"
-```
-
-Tell the user:
-> "Opening http://localhost:<PORT>/dashboard in your browser."
+Read `URL` from its output and tell the user:
+> "Opening <URL> in your browser."
 
 ---
 

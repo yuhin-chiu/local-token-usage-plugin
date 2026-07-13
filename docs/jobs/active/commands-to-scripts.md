@@ -50,7 +50,7 @@
 |---|------|------|
 | M0 | 定脚本契约 → `scripts/README.md`（CLI 规范：非交互/参数/输出协议/退出码/data-dir 入参） | ✅ |
 | M1 | 试点 `query` → `scripts/usage.js`；`query.md` 变薄；输出逐字节回归 | ✅ |
-| M2 | 只读检测类 `open` + `status` 进脚本；更新 `hooks/allow.js` 白名单；4 状态回归 | 🔲 规划完成，待①② |
+| M2 | 只读检测类 `open` + `status` 进脚本；更新 `hooks/allow.js` 白名单；4 状态回归 | 🚧 `open` 完成；剩 `status.js` |
 | M3 | 启停类 `start` + `stop` → `scripts/service.js`（改盘，不进白名单）；3 运行模式回归 | 🔲 |
 | M4 | `init` + `update` 的**机械部分** → `scripts/install.js`；`AskUserQuestion` 与诊断重试循环留 command；2 主路径回归 | 🔲 |
 
@@ -80,8 +80,14 @@
 - **当前进度**：M0+M1 完成并已提交（commit `11d38db`）。M1 产物：`scripts/usage.js`
   （text 默认 + `--format=json`）、`query.md` 变薄、`hooks/allow.js` 加 usage.js 白名单；
   冻结快照回归 today/7d/30d 逐字节一致（PASS）。
-- **下一步**：M2 —— `open` + `status` 只读脚本化。方案已设计（见下「M2 规划」），
-  **待用户拍板 ①② 后开写**。
+- **[M2 ①② 已定]** ① `open-browser.js` **进白名单**（`/open` 用户主动敲、无害 side-effect，不再弹框）；
+  ② 回归**简化**——不再做 M1 那种硬核冻结快照对拍；`open-browser` 靠 `--dry-run` 验平台选择 +
+  Windows 真开一次目视确认，`status.js` 到时在真实状态跑 + 逻辑评审即可。
+- **[M2 open 完成]** `scripts/open-browser.js`（`--port`/`--path`/`--dry-run`，输出 `URL/OPENER/OPENED`）、
+  `open.md` Step 1 变一行、`hooks/allow.js` 加 open-browser.js 白名单。回归：dry-run 平台选择 ✅、
+  缺 port 退出码 2 ✅、Windows 真开 ✅。**未提交**。
+- **下一步**：M2 剩 `scripts/status.js`（`--port --install-dir` → `PORT_LISTENING`(Node `net` 试连)/
+  `PM2_MODE`/`PM2_STATE`），改 `status.md` 调脚本，`allow.js` 加 status.js 白名单。见「M2 规划」。
 - **换机续接提示**：拉最新 `main` → 读本文件 →「M2 规划」→ 等用户回答 ①②，即可动手。
   第一步动作是写 `scripts/open-browser.js` + `scripts/status.js`。
 
