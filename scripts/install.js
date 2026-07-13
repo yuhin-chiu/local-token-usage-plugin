@@ -21,7 +21,17 @@
  *       but missing from the user's config, keeping existing values (update 4b).
  *       Reports SYNCED and the current RUN_MODE for the command to act on.
  *
- * (clone / pull / build land in the second M4 batch.)
+ *   clone         --install-dir=<dir> [--repo=<url>]
+ *       git clone the dashboard. If the dir is already a git-cloned install, reports
+ *       CLONED=skipped-exists (the command pulls instead) — never re-clones over it.
+ *
+ *   pull          --install-dir=<dir> [--no-pull]
+ *       Network-optional refresh: fetch, and fast-forward ONLY when strictly behind.
+ *       Offline / diverged / ahead → PULLED=no (never blocks). --no-pull skips it.
+ *
+ *   build         --install-dir=<dir> [--force]
+ *       npm install + npm run build. Skips when node_modules + .next already exist
+ *       (unless --force). On failure: last 30 lines to stderr, BUILT=fail, exit 1.
  *
  * Output — KEY=VALUE lines on stdout (resolve.js protocol); diagnostics on stderr.
  *
@@ -34,6 +44,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 
 
 function argVal(name) {
@@ -41,6 +52,10 @@ function argVal(name) {
   const hit = process.argv.find((a) => a.startsWith(pref));
   return hit ? hit.slice(pref.length) : "";
 }
+const hasFlag = (name) => process.argv.includes(`--${name}`);
+
+/** The dashboard's upstream repo — override with --repo. */
+const DEFAULT_REPO = "https://github.com/yuhin-chiu/local-token-usage";
 
 function die(msg) {
   process.stderr.write(`install: ${msg}\n`);
@@ -146,6 +161,104 @@ function syncConfig() {
   out(`SYNCED=${changed ? "topped-up" : "complete"}`, `RUN_MODE=${cfg.runMode || ""}`);
 }
 
+function dirExists(p) {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/** Last n lines of a captured stream, for surfacing why a build failed. */
+function tail(s, n) {
+  return s.split("\n").slice(-n).join("\n") + "\n";
+}
+
+function cloneRepo() {
+  const installDir = argVal("install-dir");
+  if (!installDir) die("clone: missing --install-dir=<dir>");
+  const repo = argVal("repo") || DEFAULT_REPO;
+
+  // Already a git-cloned install → don't re-clone; the command pulls instead.
+  if (dirExists(installDir) && dirExists(path.join(installDir, ".git"))) {
+    out(`CLONED=skipped-exists`, `INSTALL_DIR=${installDir}`);
+    return;
+  }
+
+  // Progress goes to stderr (inherited so the user sees it); stdout stays clean
+  // for our KEY=VALUE line.
+  const r = spawnSync(`git clone "${repo}" "${installDir}"`, {
+    shell: true,
+    stdio: ["ignore", "ignore", "inherit"],
+  });
+  if (r.status === 0) {
+    out(`CLONED=yes`, `INSTALL_DIR=${installDir}`);
+  } else {
+    out(`CLONED=fail`);
+    process.exit(1);
+  }
+}
+
+function pullRepo() {
+  const installDir = argVal("install-dir");
+  if (!installDir) die("pull: missing --install-dir=<dir>");
+  if (hasFlag("no-pull")) {
+    out(`PULLED=no`, `PULL=skipped`);
+    return;
+  }
+
+  const git = (a) => spawnSync(`git ${a}`, { shell: true, cwd: installDir, encoding: "utf8" });
+  const rev = (a) => (git(a).stdout || "").trim();
+
+  if (git("fetch").status !== 0) {
+    // Offline / fetch failed — don't block the update, just skip pulling.
+    out(`PULLED=no`, `PULL=offline`);
+    return;
+  }
+  const local = rev("rev-parse @");
+  const remote = rev('rev-parse "@{u}"');
+  const base = rev('merge-base @ "@{u}"');
+
+  if (!remote) return out(`PULLED=no`, `PULL=no-upstream`);
+  if (local === remote) return out(`PULLED=no`, `PULL=up-to-date`);
+  if (local === base) {
+    // Strictly behind → fast-forward only (never a merge commit).
+    const ok = git("merge --ff-only").status === 0;
+    return out(`PULLED=${ok ? "yes" : "no"}`, `PULL=${ok ? "fast-forwarded" : "ff-failed"}`);
+  }
+  // Ahead of / diverged from upstream → leave local commits alone.
+  out(`PULLED=no`, `PULL=diverged`);
+}
+
+function buildApp() {
+  const installDir = argVal("install-dir");
+  if (!installDir) die("build: missing --install-dir=<dir>");
+  const force = hasFlag("force");
+
+  const haveDeps = dirExists(path.join(installDir, "node_modules"));
+  const haveBuild = dirExists(path.join(installDir, ".next"));
+  if (!force && haveDeps && haveBuild) {
+    out(`BUILT=skipped`, `REASON=artifacts-present`);
+    return;
+  }
+
+  const npm = (a) => spawnSync(`npm ${a}`, { shell: true, cwd: installDir, encoding: "utf8" });
+
+  const inst = npm("install");
+  if (inst.status !== 0) {
+    process.stderr.write(tail(inst.stderr || inst.stdout || "", 30));
+    out(`BUILT=fail`, `STAGE=install`);
+    process.exit(1);
+  }
+  const built = npm("run build");
+  if (built.status !== 0) {
+    process.stderr.write(tail(built.stderr || built.stdout || "", 30));
+    out(`BUILT=fail`, `STAGE=build`);
+    process.exit(1);
+  }
+  out(`BUILT=yes`);
+}
+
 const action = argVal("action");
 switch (action) {
   case "write-marker":
@@ -157,6 +270,18 @@ switch (action) {
   case "sync-config":
     syncConfig();
     break;
+  case "clone":
+    cloneRepo();
+    break;
+  case "pull":
+    pullRepo();
+    break;
+  case "build":
+    buildApp();
+    break;
   default:
-    die(`unknown --action=${action || "(none)"} (expected write-marker|write-config|sync-config)`);
+    die(
+      `unknown --action=${action || "(none)"} ` +
+        `(expected write-marker|write-config|sync-config|clone|pull|build)`
+    );
 }

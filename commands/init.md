@@ -65,37 +65,32 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=write-marker --install-
 
 ## Step 3: Clone or update the repo
 
-Check if `INSTALL_DIR` already exists:
+Clone with the install script — it won't re-clone over an existing install:
 
 ```bash
-# macOS/Linux
-[ -d "$INSTALL_DIR" ] && echo "EXISTS" || echo "NEW"
-
-# Windows (PowerShell)
-if (Test-Path "$INSTALL_DIR") { "EXISTS" } else { "NEW" }
+node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=clone --install-dir="<INSTALL_DIR>"
 ```
 
-**If NEW** — clone:
-```bash
-git clone https://github.com/yuhin-chiu/local-token-usage "$INSTALL_DIR"
-```
-
-**If EXISTS** — pull latest:
-```bash
-cd "$INSTALL_DIR" && git pull
-```
+- `CLONED=yes` → freshly cloned. Continue.
+- `CLONED=skipped-exists` → already a clone; refresh it instead:
+  ```bash
+  node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=pull --install-dir="<INSTALL_DIR>"
+  ```
+- `CLONED=fail` → stop and report the git error shown above.
 
 ---
 
 ## Step 4: Install dependencies and build
 
+First-time install → force a clean build:
+
 ```bash
-cd "$INSTALL_DIR"
-npm install
-npm run build
+node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=build --install-dir="<INSTALL_DIR>" --force
 ```
 
-If build fails, show the last 30 lines of output and stop.
+- `BUILT=yes` → done.
+- `BUILT=fail` → the last 30 lines are shown above (`STAGE` says install vs build).
+  Stop and surface them to the user.
 
 ---
 
@@ -196,77 +191,33 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=write-config --install-
 
 ## Step 7: Start the service
 
-根据用户在 Step 6 的选择执行对应操作。PM2 模式会通过 `ecosystem.config.js`
-自动读取 Step 5d 写入的端口；无 PM2 模式需显式带上端口。
+**pm2 模式的一次性准备**（选项 3 跳过）：
+- 选项 1（pm2-global）：`npm install -g pm2`
+- 选项 2（pm2-project）：`cd "<INSTALL_DIR>" && npm install pm2`
 
-### 选项 1：全局安装 PM2
-
-```bash
-npm install -g pm2
-cd "$INSTALL_DIR"
-pm2 start ecosystem.config.js --update-env
-pm2 save
-```
-
-设置开机自启（仅首次安装执行）：
-```bash
-pm2 startup
-```
-如果 PM2 输出了一行需要手动执行的命令（通常是 `sudo env PATH=...`），提示用户复制并在终端执行。
-
-### 选项 2：项目级安装 PM2
+**起服务（所有模式，一行 — 自动探测模式、通过 `ecosystem.config.js` 读端口、起后轮询端口）：**
 
 ```bash
-cd "$INSTALL_DIR"
-npm install pm2
-npx pm2 start ecosystem.config.js --update-env
-npx pm2 save
+node "${CLAUDE_PLUGIN_ROOT}/scripts/service.js" --action=start --install-dir="<INSTALL_DIR>" --port=<PORT>
 ```
 
-设置开机自启（仅首次安装执行）：
-```bash
-npx pm2 startup
-```
-同样，如果输出了手动命令，提示用户执行。
-
-### 选项 3：不安装 PM2
-
-用 Step 5c 选定的 `$PORT` 直接启动（不要用 `npm start`，因为它把端口写死成 3002）。
-
-**macOS/Linux** — 后台运行并输出日志到文件：
-```bash
-cd "$INSTALL_DIR"
-nohup npx next start -p $PORT > "$INSTALL_DIR/local-usage.log" 2>&1 &
-echo "Started. PID: $!"
-```
-
-**Windows（PowerShell）** — 后台运行：
-```powershell
-Start-Process -NoNewWindow -FilePath "npx" -ArgumentList "next","start","-p","$PORT" -WorkingDirectory "$INSTALL_DIR"
-```
-
-告诉用户：
-> "服务已在后台启动（无 PM2）。注意：重启电脑后需重新运行 /local-usage:init 或 /local-usage:start 来启动服务。"
+读 `RESULT` / `PORT_LISTENING`：
+- `RESULT=ok` → 已起。pm2 模式可设开机自启（仅首装）：`pm2 save` + `pm2 startup`
+  （项目级用 `npx pm2 …`）；若 PM2 输出一行 `sudo env PATH=…` 手动命令，提示用户复制执行。
+- `RESULT=fail` → 见 Step 8 诊断。
 
 ---
 
 ## Step 8: Confirm
 
-检查 Step 5c 选定的端口（默认 3002，下面记作 `$PORT`）是否有进程在监听：
-
-```bash
-# macOS/Linux
-lsof -i :$PORT | grep LISTEN
-
-# Windows (PowerShell)
-Get-NetTCPConnection -LocalPort $PORT -State Listen -ErrorAction SilentlyContinue
-```
-
-如果端口有监听，告诉用户（把 `$PORT` 换成实际端口）：
-> "✓ AI Usage Dashboard is running at http://localhost:$PORT/dashboard
->
-> Use `/local-usage:open` to open it, or `/local-usage:query` to see today's usage inline."
-
-如果端口无响应，根据启动模式显示日志：
-- PM2 模式：`pm2 logs local-usage --lines 30 --nostream`（全局）或 `npx pm2 logs local-usage --lines 30 --nostream`（项目级）
-- 无 PM2 模式：`cat "$INSTALL_DIR/local-usage.log"`（macOS/Linux）
+- **`RESULT=ok`** → 打开 dashboard：
+  ```bash
+  node "${CLAUDE_PLUGIN_ROOT}/scripts/open-browser.js" --port=<PORT>
+  ```
+  读 `URL`，告诉用户：
+  > "✓ AI Usage Dashboard is running at <URL>
+  >
+  > Use `/local-usage:open` to open it, or `/local-usage:query` to see today's usage inline."
+- **`RESULT=fail`**（端口没起）→ 按模式看日志诊断，修复后重试 Step 7：
+  - PM2 模式：`pm2 logs local-usage --lines 30 --nostream`（全局）或 `npx pm2 logs local-usage --lines 30 --nostream`（项目级）
+  - 无 PM2 模式：`cat "<INSTALL_DIR>/local-usage.log"`（macOS/Linux）

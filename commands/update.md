@@ -88,40 +88,22 @@ below can build or run without it.
 
 ## Step 3: Refresh the code (network-optional)
 
-Step 1 guaranteed this is a git repo. Sync the latest commits, but treat the network
-as **optional**: a doctor run must still work offline, and it must not re-download or
-rebuild when nothing changed.
+Step 1 guaranteed this is a git repo. The install script syncs the latest commits but
+treats the network as **optional** — one call, all platforms. It fetches and
+fast-forwards **only when strictly behind**; offline, diverged, or ahead → `PULLED=no`
+(never aborts, never re-downloads).
 
-**If the user passed `--no-pull` / `--local` / `--offline`** (see Arguments): skip
-this whole step, set `PULLED=no`, and go to Step 4.
+Pass `--no-pull` when the user passed `--no-pull` / `--local` / `--offline` (see
+Arguments) to skip fetching entirely:
 
-Otherwise fetch, then fast-forward **only when the local branch is actually behind** —
-and never let a failed fetch abort the run:
-
-**macOS/Linux:**
 ```bash
-cd "<INSTALL_DIR>" || exit 1
-if git fetch --quiet 2>/dev/null; then
-  LOCAL="$(git rev-parse HEAD 2>/dev/null)"
-  REMOTE="$(git rev-parse '@{u}' 2>/dev/null)"
-  if [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
-    git merge --ff-only 2>/dev/null && echo "PULLED=yes" \
-      || echo "PULLED=no (diverged/local changes — skipping, nothing lost)"
-  else
-    echo "PULLED=no (already up to date)"
-  fi
-else
-  echo "PULLED=no (offline or fetch failed — continuing with local repair)"
-fi
+node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=pull --install-dir="<INSTALL_DIR>"
 ```
 
-**Windows (PowerShell):** same logic — `git fetch`; compare `git rev-parse HEAD` vs
-`git rev-parse '@{u}'`; run `git merge --ff-only` only if they differ; on any fetch
-failure just report offline and continue.
-
-`PULLED=yes` **only** when new commits were fast-forwarded in. Step 5 keys the
-reinstall/rebuild off it, so an up-to-date (or offline) run does **zero** extra
-network or build work — it just verifies the service is up.
+Read `PULLED` (and `PULL` for the reason: `up-to-date` / `fast-forwarded` / `offline`
+/ `diverged` / `skipped`). `PULLED=yes` **only** when new commits were fast-forwarded
+in — Step 5 keys the rebuild off it, so an up-to-date or offline run does zero extra
+build work.
 
 ---
 
@@ -193,21 +175,20 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=write-config --install-
 
 ## Step 5: Dependencies & build
 
-Rebuild only when needed — after a real pull, or when artifacts are missing.
+Rebuild only when needed — after a real pull, or when artifacts are missing. The build
+script skips when `node_modules` + `.next` already exist; `--force` overrides it.
 
-```bash
-cd "<INSTALL_DIR>"
-# install if node_modules is missing OR code was pulled (PULLED=yes)
-[ ! -d node_modules ] && NEED_INSTALL=1
-# build if .next is missing OR code was pulled
-[ ! -d .next ] && NEED_BUILD=1
-```
+- **`PULLED=yes`** (new code) → force a rebuild:
+  ```bash
+  node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=build --install-dir="<INSTALL_DIR>" --force
+  ```
+- **`PULLED=no`** → let it self-skip (builds only if artifacts are missing):
+  ```bash
+  node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=build --install-dir="<INSTALL_DIR>"
+  ```
 
-- If `PULLED=yes` **or** `node_modules` missing → `npm install`
-- If `PULLED=yes` **or** `.next` missing → `npm run build`
-
-If `npm run build` fails, show the last 30 lines and **Stop** — this is a hard
-blocker that needs a human to read the error.
+Read `BUILT`: `yes` / `skipped` → continue. `BUILT=fail` → the last 30 lines are shown
+above (`STAGE` says install vs build); **Stop** — a human must read the error.
 
 ---
 
@@ -219,41 +200,16 @@ or you hit a hard blocker (port taken by an unrelated process, etc.).
 
 Read `PORT` and `RUN_MODE` from `<INSTALL_DIR>/local-usage.config.json`.
 
-### RUN_MODE = pm2-global
+**Self-heal: if a pm2 mode is missing pm2, install it first** — `RUN_MODE=pm2-global`
+→ `npm install -g pm2`; `pm2-project` → `cd "<INSTALL_DIR>" && npm install pm2`.
+
+**Start + verify (one call — starts per `RUN_MODE` and polls the port):**
 ```bash
-pm2 --version || npm install -g pm2          # fix: pm2 missing
-pm2 restart local-usage --update-env 2>/dev/null || pm2 start "<INSTALL_DIR>/ecosystem.config.js"
-pm2 save
+node "${CLAUDE_PLUGIN_ROOT}/scripts/service.js" --action=start --install-dir="<INSTALL_DIR>" --port=<PORT> --mode=<RUN_MODE>
 ```
 
-### RUN_MODE = pm2-project
-```bash
-cd "<INSTALL_DIR>"
-npx --no pm2 --version 2>/dev/null || npm install pm2   # fix: pm2 missing
-npx pm2 restart local-usage --update-env 2>/dev/null || npx pm2 start ecosystem.config.js
-npx pm2 save
-```
-
-### RUN_MODE = none
-```bash
-# macOS/Linux
-cd "<INSTALL_DIR>" && nohup npx next start -p <PORT> > "<INSTALL_DIR>/local-usage.log" 2>&1 &
-```
-```powershell
-# Windows
-Start-Process -NoNewWindow -FilePath "npx" -ArgumentList "next","start","-p","<PORT>" -WorkingDirectory "<INSTALL_DIR>"
-```
-
-### Verify it's listening
-```bash
-# macOS/Linux
-lsof -i :<PORT> | grep LISTEN
-# Windows
-Get-NetTCPConnection -LocalPort <PORT> -State Listen -ErrorAction SilentlyContinue
-```
-
-- **Listening** → success. Continue to Step 7.
-- **Not listening** → look at the logs and fix the root cause, then retry this step:
+- **`RESULT=ok`** (`PORT_LISTENING=yes`) → success. Continue to Step 7.
+- **`RESULT=fail`** → look at the logs, fix the root cause, then retry this step:
   - PM2 modes: `pm2 logs local-usage --lines 30 --nostream` (or `npx pm2 logs ...`)
   - no-PM2: `cat "<INSTALL_DIR>/local-usage.log"`
   - Common fixes: port taken → tell the user (hard blocker unless they change
@@ -268,10 +224,7 @@ Summarize what was checked and repaired (marker, config keys added, pulled/rebui
 service restarted), then open the dashboard:
 
 ```bash
-# macOS: open ... / Linux: xdg-open ... / Windows: Start-Process
-```
-```powershell
-Start-Process "http://localhost:<PORT>/dashboard"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/open-browser.js" --port=<PORT>
 ```
 
 > "✓ Repaired and running. Dashboard is live at http://localhost:<PORT>/dashboard.

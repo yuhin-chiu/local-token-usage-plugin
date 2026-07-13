@@ -52,7 +52,7 @@
 | M1 | 试点 `query` → `scripts/usage.js`；`query.md` 变薄；输出逐字节回归 | ✅ |
 | M2 | 只读检测类 `open` + `status` 进脚本；更新 `hooks/allow.js` 白名单；4 状态回归 | ✅ |
 | M3 | 启停类 `start` + `stop` → `scripts/service.js`（改盘，不进白名单）；3 运行模式回归 | ✅ |
-| M4 | `init` + `update` 的**机械部分** → `scripts/install.js`；`AskUserQuestion` 与诊断重试循环留 command；2 主路径回归 | 🔲 |
+| M4 | `init` + `update` 的**机械部分** → `scripts/install.js`；`AskUserQuestion` 与诊断重试循环留 command；2 主路径回归 | ✅ |
 
 顺序理由：先证明模式（M1 最独立、零 CC 依赖），再铺开；M4 最重、最易破坏交互，放最后。
 
@@ -124,7 +124,18 @@
   build 按需（PULLED 或产物缺失）。init.md S3/S4、update.md S3/S5 变薄。起服务复用 service.js（已有）。
   回归：pull/build 在真实 `D:/code3/local-usage` 真跑；clone 的 skip 分支验（已存在→skip）；全新 clone
   dry-run+评审（用户自行删后 init 验）。Mac 遗留。
-- **换机续接提示**：拉最新 `main` → 读本文件 → 从 M4-2 起。真实 install 在 `D:/code3/local-usage`。
+- **[M4-2 完成]** install.js 加 `clone`（已存在→`CLONED=skipped-exists` 不重下）/`pull`（network-optional，
+  fetch→仅落后 ff-only→`PULLED`，offline/diverged 不阻塞）/`build`（node_modules+.next 在则 skip，`--force`
+  覆盖，失败末 30 行→stderr + exit 1）。init.md S3/S4/S7/S8、update.md S3/S5/S6/S7 全部变薄——**六个命令
+  已无任何 bash/PowerShell 双写**；起服务复用 service.js、打开复用 open-browser.js；pm2 安装/save/startup
+  （含 sudo 手动提示）+ 诊断重试循环留 command。
+  - **回归**：clone skip-exists ✅、pull up-to-date/`--no-pull` ✅、build skipped(产物在) ✅、参数退出码 2 ✅；
+    全新 clone 真下载 + `build --force` 真编译按约定不跑（用户删项目自行 /init 验），逻辑评审。Mac 遗留。
+- **[整个任务完成]** M0–M4 全绿。六命令（init/update/start/stop/status/open/query）确定性逻辑已下沉
+  `scripts/`，命令 markdown 只做编排 + AskUserQuestion + 诊断重试。跨平台单一 Node 实现，无双写。
+  只读脚本（resolve/usage/status/detect-sources/open-browser）进白名单；改盘脚本（service/install）不进。
+  **遗留**：Mac 实测（本轮靠跨平台写法 + 评审）；全新 clone/build 真跑（用户自验）；Codex 适配（第二步整块）。
+- **换机续接提示**：任务已完成，待归档到 `archive/`。真实 install 在 `D:/code3/local-usage`。
 
 ## M2 规划（已设计，待用户定 ①② 后执行）
 

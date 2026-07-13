@@ -9,7 +9,7 @@
 
 | ID | 名称 | 优先级 | 状态 |
 |----|------|--------|------|
-| `commands-to-scripts` | 命令脚本化（Claude 侧） | 中 | 🚧 M4-1 完成（install.js marker/config + 修好 marker），下一步 M4-2 clone/build |
+| `commands-to-scripts` | 命令脚本化（Claude 侧） | 中 | ✅ M0–M4 全完成（六命令脚本化，无双写），待归档 |
 
 ## 🔲 待办（backlog.md）
 

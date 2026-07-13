@@ -60,5 +60,5 @@
 | `resolve.js` | 只读 | 定位安装目录 / 端口 / 有效性 / Node 版本，`KEY=VALUE` 输出 | 已有 |
 | `usage.js` | 只读 | 走 `~/.claude` + `~/.codex` 会话算 token/成本；text 默认、`--format=json` 可选 | ✅ M1 |
 | `service.js` | 改盘 | pm2 模式探测 + 起/停（三模式）+ 端口轮询校验；`--dry-run` | ✅ M3 |
-| `install.js` | 改盘 | 写 marker / config upsert / config top-up（M4-1 ✅）；clone·pull·build（M4-2 待） | 🚧 M4 |
+| `install.js` | 改盘 | marker / config upsert / config top-up / clone / pull / build | ✅ M4 |
 | `detect-sources.js` | 只读 | 检测 `~/.claude`·`~/.codex` 存在性，给 init/update 选源默认 | ✅ M4-1 |
