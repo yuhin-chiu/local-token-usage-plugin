@@ -60,5 +60,34 @@
 | `resolve.js` | 只读 | 定位安装目录 / 端口 / 有效性 / Node 版本，`KEY=VALUE` 输出 | 已有 |
 | `usage.js` | 只读 | 走 `~/.claude` + `~/.codex` 会话算 token/成本；text 默认、`--format=json` 可选 | ✅ M1 |
 | `service.js` | 改盘 | pm2 模式探测 + 起/停（三模式）+ 端口轮询校验；`--dry-run` | ✅ M3 |
-| `install.js` | 改盘 | marker / config upsert / config top-up / clone / pull / build | ✅ M4 |
+| `install.js` | 改盘 | marker / config upsert / config top-up / clone / pull / sync-code（版本锁定）/ build | ✅ M4 |
 | `detect-sources.js` | 只读 | 检测 `~/.claude`·`~/.codex` 存在性，给 init/update 选源默认 | ✅ M4-1 |
+| `release.sh` | 改盘 | 发布侧：把插件版本钉成看板同名 tag（见下） | ✅ |
+
+## 8. 版本锁定与发布（version-lockstep）
+
+看板代码「该不该更新」由**插件版本**说了算，而非看板 `main` 是否有新 commit——
+根治插件没升级、看板却被反复 pull 的问题。
+
+- **安装侧**：`install.js --action=sync-code` 读 `.claude-plugin/plugin.json` 的
+  `version` → 目标 tag `v<version>`。看板 HEAD 已在该 tag 指向的 commit → `CODE_STATE=current`，
+  零网络零构建；否则 checkout 到该 tag（`updated`）。脏工作区 / 本地提交 → `protected`
+  只警告不动。tag 未发布 → `fallback` 回退跟 `main`（兼容无 tag 的看板 repo）。
+  `init.md` / `update.md` 的 Step 3 都调它，rebuild 按 `CODE_CHANGED` 决定。
+
+- **发布侧**：`release.sh` 把当前插件版本钉成看板同名 tag。**发版时**（不是每次 commit）跑：
+
+  ```bash
+  # 前提：插件和看板都已 commit 且 push 到各自 origin
+  ./scripts/release.sh          # dry-run：显示将给看板哪个 commit 打什么 tag
+  ./scripts/release.sh --push   # 确认后真正打 annotated tag 并推到看板 origin
+  ```
+
+  四道安全门：插件在 main+干净+与 origin 同步；看板同样；tag 已存在（本地或远程）
+  则拒绝覆盖；默认 dry-run，`--push` 才动手且 push 后复核远程。看板 clone 默认探测
+  `../local-usage`，可用 `--dashboard=<path>` 覆盖。
+
+  > tag 钉的是某个确定 commit：之后看板 `main` 继续走，该插件版本用户也不会跟，
+  > 要等插件升到下一版并再次 `release.sh --push`。这正是 lockstep 的目的——
+  > 确保钉的是想让该版本用户跑的 commit。
+
