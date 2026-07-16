@@ -72,11 +72,23 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=clone --install-dir="<I
 ```
 
 - `CLONED=yes` → freshly cloned. Continue.
-- `CLONED=skipped-exists` → already a clone; refresh it instead:
-  ```bash
-  node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=pull --install-dir="<INSTALL_DIR>"
-  ```
+- `CLONED=skipped-exists` → already a clone. Continue (Step 3a re-pins it).
 - `CLONED=fail` → stop and report the git error shown above.
+
+### Step 3a: Pin to the plugin's version (version-lockstep)
+
+Pin the checkout to the tag matching the plugin's version (`v<version>`) so a fresh
+install runs the exact commit this plugin version expects — deterministic and
+reproducible across machines. On a tagless dashboard repo (today's reality) this
+falls back to `main`, so it's a safe no-op there:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=sync-code --install-dir="<INSTALL_DIR>"
+```
+
+Read `CODE_STATE`: `updated` / `current` / `fallback` → continue to Step 4 (the
+build below runs `--force` regardless, since this is a first-time install). `error` →
+stop and surface `WARNING`.
 
 ---
 

@@ -29,6 +29,13 @@
  *       Network-optional refresh: fetch, and fast-forward ONLY when strictly behind.
  *       Offline / diverged / ahead → PULLED=no (never blocks). --no-pull skips it.
  *
+ *   sync-code     --install-dir=<dir> [--no-pull]
+ *       Version-lockstep refresh: pin the dashboard checkout to the tag matching the
+ *       plugin's version (v<version> from .claude-plugin/plugin.json). Already on the
+ *       target commit → zero network, zero build. Tag not published yet → falls back
+ *       to the plain `pull` (follows main), so it's a no-op change on repos without
+ *       tags. Reports CODE_STATE / CODE_CHANGED for the command to key the rebuild off.
+ *
  *   build         --install-dir=<dir> [--force]
  *       npm install + npm run build. Skips when node_modules + .next already exist
  *       (unless --force). On failure: last 30 lines to stderr, BUILT=fail, exit 1.
@@ -255,6 +262,154 @@ function pullRepo() {
   out(`PULLED=no`, `PULL=diverged`);
 }
 
+/**
+ * Version-lockstep: pin the dashboard to the tag matching the plugin's version.
+ *
+ * The plugin's own version (`.claude-plugin/plugin.json`, one level up from this
+ * script's dir) is the single source of truth for which dashboard commit to run:
+ * v<version>. When the checkout already sits on that commit we do nothing — no
+ * network, no build — so re-running /update with an unchanged plugin is a true
+ * no-op. When the tag isn't published yet (the current reality: the dashboard repo
+ * has no tags), we fall back to the plain `pull` (follow main), so behaviour is
+ * unchanged on tagless repos and upgrades automatically once tags exist.
+ */
+function pluginVersion() {
+  const manifest = path.join(__dirname, "..", ".claude-plugin", "plugin.json");
+  const v = String(readJson(manifest).version || "").trim();
+  if (!/^\d+\.\d+\.\d+/.test(v)) throw new Error(`bad plugin version: ${v || "(none)"}`);
+  return v;
+}
+
+function syncCode() {
+  const installDir = argVal("install-dir");
+  if (!installDir) die("sync-code: missing --install-dir=<dir>");
+  const noPull = hasFlag("no-pull");
+
+  if (!dirExists(path.join(installDir, ".git"))) {
+    out(`CODE_STATE=error`, `CODE_CHANGED=false`, `WARNING=not-a-git-clone`);
+    process.exit(1);
+  }
+
+  let targetTag;
+  try {
+    targetTag = "v" + pluginVersion();
+  } catch (e) {
+    out(`CODE_STATE=error`, `CODE_CHANGED=false`, `WARNING=${e.message}`);
+    process.exit(1);
+  }
+
+  const git = (a) => spawnSync(`git ${a}`, { shell: true, cwd: installDir, encoding: "utf8" });
+  const rev = (a) => (git(a).stdout || "").trim();
+  const tagCommit = () => rev(`rev-parse -q --verify "${targetTag}^{commit}"`);
+
+  const head = rev("rev-parse HEAD");
+
+  // Already on the target commit → the whole point: zero network, zero build.
+  let target = tagCommit();
+  if (target && target === head) {
+    out(
+      `CODE_STATE=current`,
+      `CODE_CHANGED=false`,
+      `TARGET_TAG=${targetTag}`,
+      `NETWORK_USED=false`,
+      `WARNING=`
+    );
+    return;
+  }
+
+  // Dev-machine guard: never disturb uncommitted work or local commits.
+  const dirty = rev("status --porcelain") !== "";
+  if (dirty) {
+    out(
+      `CODE_STATE=protected`,
+      `CODE_CHANGED=false`,
+      `TARGET_TAG=${targetTag}`,
+      `NETWORK_USED=false`,
+      `WARNING=dirty-worktree`
+    );
+    return;
+  }
+  const ahead = Number(rev('rev-list --count "@{u}..HEAD"')) || 0;
+  if (ahead > 0) {
+    out(
+      `CODE_STATE=protected`,
+      `CODE_CHANGED=false`,
+      `TARGET_TAG=${targetTag}`,
+      `NETWORK_USED=false`,
+      `WARNING=local-commits`
+    );
+    return;
+  }
+
+  // Tag not present locally and network allowed → fetch tags and re-check.
+  let networkUsed = false;
+  if (!target && !noPull) {
+    networkUsed = true;
+    if (git("fetch --tags").status === 0) target = tagCommit();
+  }
+
+  // Target tag resolved → detach onto it (deterministic, version-pinned).
+  if (target) {
+    const ok = git(`checkout --detach ${target}`).status === 0;
+    if (!ok) {
+      out(`CODE_STATE=error`, `CODE_CHANGED=false`, `TARGET_TAG=${targetTag}`,
+        `NETWORK_USED=${networkUsed}`, `WARNING=checkout-failed`);
+      process.exit(1);
+    }
+    out(
+      `CODE_STATE=updated`,
+      `CODE_CHANGED=true`,
+      `TARGET_TAG=${targetTag}`,
+      `NETWORK_USED=${networkUsed}`,
+      `WARNING=`
+    );
+    return;
+  }
+
+  // Tag still unavailable (not published yet) → fall back to plain pull on main,
+  // so tagless repos behave exactly as before and upgrade once a tag is published.
+  pullFallback(installDir, noPull, targetTag);
+}
+
+/** Shared fallback used by sync-code when the version tag isn't published. */
+function pullFallback(installDir, noPull, targetTag) {
+  const git = (a) => spawnSync(`git ${a}`, { shell: true, cwd: installDir, encoding: "utf8" });
+  const rev = (a) => (git(a).stdout || "").trim();
+
+  const warn = `target-tag-${targetTag}-not-published-using-main`;
+
+  if (noPull) {
+    // No tag, offline → nothing safe to pin to; leave the checkout untouched.
+    out(`CODE_STATE=fallback`, `CODE_CHANGED=false`, `TARGET_TAG=${targetTag}`,
+      `NETWORK_USED=false`, `WARNING=${warn}-offline-noop`);
+    return;
+  }
+
+  if (git("fetch").status !== 0) {
+    out(`CODE_STATE=fallback`, `CODE_CHANGED=false`, `TARGET_TAG=${targetTag}`,
+      `NETWORK_USED=true`, `WARNING=${warn}-fetch-offline`);
+    return;
+  }
+  const local = rev("rev-parse @");
+  const remote = rev('rev-parse "@{u}"');
+  const base = rev('merge-base @ "@{u}"');
+
+  if (!remote || local === remote) {
+    out(`CODE_STATE=fallback`, `CODE_CHANGED=false`, `TARGET_TAG=${targetTag}`,
+      `NETWORK_USED=true`, `WARNING=${warn}`);
+    return;
+  }
+  if (local === base) {
+    const ok = git("merge --ff-only").status === 0;
+    out(`CODE_STATE=fallback`, `CODE_CHANGED=${ok}`, `TARGET_TAG=${targetTag}`,
+      `NETWORK_USED=true`, `WARNING=${warn}`);
+    return;
+  }
+  // Diverged → leave local commits alone.
+  out(`CODE_STATE=fallback`, `CODE_CHANGED=false`, `TARGET_TAG=${targetTag}`,
+    `NETWORK_USED=true`, `WARNING=${warn}-diverged`);
+}
+
 function buildApp() {
   const installDir = argVal("install-dir");
   if (!installDir) die("build: missing --install-dir=<dir>");
@@ -301,12 +456,15 @@ switch (action) {
   case "pull":
     pullRepo();
     break;
+  case "sync-code":
+    syncCode();
+    break;
   case "build":
     buildApp();
     break;
   default:
     die(
       `unknown --action=${action || "(none)"} ` +
-        `(expected write-marker|write-config|sync-config|clone|pull|build)`
+        `(expected write-marker|write-config|sync-config|clone|pull|sync-code|build)`
     );
 }

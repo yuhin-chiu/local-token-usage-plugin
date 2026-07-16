@@ -15,10 +15,11 @@
 
 | ID | 名称 | 优先级 | 一句话 |
 |----|------|--------|--------|
-| `version-lockstep` | 插件版本 ↔ 看板 tag 锁定，治反复 pull | 中 | 用插件版本当「源码该不该更新」的开关，checkout 对应 tag |
+| — | — | — | 暂无 |
 
 ## ✅ 已归档（archive/）
 
 | 完成日期 | ID | 名称 |
 |----------|----|------|
+| 2026-07-16 | `version-lockstep` | 插件版本 ↔ 看板 tag 锁定（sync-code action，无 tag 时 fallback 兼容）|
 | 2026-07-13 | `commands-to-scripts` | 命令脚本化（六命令确定性逻辑下沉 scripts/，无双写）→ v1.7.0 |

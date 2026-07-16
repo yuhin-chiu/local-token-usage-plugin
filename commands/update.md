@@ -86,24 +86,40 @@ below can build or run without it.
 
 ---
 
-## Step 3: Refresh the code (network-optional)
+## Step 3: Refresh the code (version-lockstep, network-optional)
 
-Step 1 guaranteed this is a git repo. The install script syncs the latest commits but
-treats the network as **optional** — one call, all platforms. It fetches and
-fast-forwards **only when strictly behind**; offline, diverged, or ahead → `PULLED=no`
-(never aborts, never re-downloads).
+Step 1 guaranteed this is a git repo. The install script pins the checkout to the
+tag matching **the plugin's own version** (`v<version>` from `plugin.json`) — one
+call, all platforms. When the checkout already sits on that commit it does **nothing**
+(no fetch, no build), so re-running `/update` without a plugin upgrade is a true
+no-op. When the dashboard repo hasn't published that tag yet (today's reality — the
+repo has no tags), it **falls back** to following `main` exactly as before, so nothing
+breaks on tagless repos and it upgrades automatically once tags exist.
 
 Pass `--no-pull` when the user passed `--no-pull` / `--local` / `--offline` (see
-Arguments) to skip fetching entirely:
+Arguments) to skip all network access:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=pull --install-dir="<INSTALL_DIR>"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=sync-code --install-dir="<INSTALL_DIR>"
 ```
 
-Read `PULLED` (and `PULL` for the reason: `up-to-date` / `fast-forwarded` / `offline`
-/ `diverged` / `skipped`). `PULLED=yes` **only** when new commits were fast-forwarded
-in — Step 5 keys the rebuild off it, so an up-to-date or offline run does zero extra
-build work.
+Read `CODE_STATE` and `CODE_CHANGED`:
+
+- `CODE_STATE=current` → already pinned to the plugin's version tag; nothing changed
+  (`CODE_CHANGED=false`). Zero network, zero build.
+- `CODE_STATE=updated` → checked out the version tag; new code is in
+  (`CODE_CHANGED=true`) → Step 5 forces a rebuild.
+- `CODE_STATE=fallback` → the version tag isn't published yet, so it followed `main`.
+  `CODE_CHANGED=true` only if new commits were fast-forwarded in (drives the rebuild);
+  `false` when already up-to-date or offline. `WARNING` explains which fallback path.
+- `CODE_STATE=protected` → local changes/commits present (dev machine); nothing was
+  touched (`CODE_CHANGED=false`). Tell the user to commit/stash if they want the pin.
+- `CODE_STATE=error` → not a git clone, or the plugin version is unreadable; **Stop**
+  and surface `WARNING`.
+
+Step 5 keys the rebuild off `CODE_CHANGED`, so an unchanged (`current`/up-to-date)
+run does zero extra build work.
+
 
 ---
 
@@ -178,11 +194,11 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=write-config --install-
 Rebuild only when needed — after a real pull, or when artifacts are missing. The build
 script skips when `node_modules` + `.next` already exist; `--force` overrides it.
 
-- **`PULLED=yes`** (new code) → force a rebuild:
+- **`CODE_CHANGED=true`** (new code, from Step 3) → force a rebuild:
   ```bash
   node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=build --install-dir="<INSTALL_DIR>" --force
   ```
-- **`PULLED=no`** → let it self-skip (builds only if artifacts are missing):
+- **`CODE_CHANGED=false`** → let it self-skip (builds only if artifacts are missing):
   ```bash
   node "${CLAUDE_PLUGIN_ROOT}/scripts/install.js" --action=build --install-dir="<INSTALL_DIR>"
   ```
